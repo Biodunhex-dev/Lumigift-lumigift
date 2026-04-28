@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, withCsrf } from "@/server/middleware";
 import { validateInvitationToken, acceptInvitation } from "@/server/services/invitation.service";
 import { randomUUID } from "crypto";
 import type { ApiResponse } from "@/types";
@@ -12,7 +12,7 @@ const registerSchema = {
   invitationToken: (val: string) => typeof val === "string" && val.length > 0,
 };
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
   const body = await req.json();
   
   const phone = normalizePhone(String(body?.phone ?? ""));
@@ -95,4 +95,4 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}));

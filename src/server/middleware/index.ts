@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { ApiError } from "@/types";
 
+// Re-export CSRF middleware so callers can import from one place
+export { withCsrf } from "@/lib/csrf";
+
 type Handler = (_req: NextRequest, _context?: unknown) => Promise<NextResponse>;
 
 /** Wraps a route handler — returns 401 if no session. */

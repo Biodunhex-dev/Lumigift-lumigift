@@ -4,6 +4,7 @@ import { useState, useId, useSearchParams } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { useCsrf } from "@/hooks/useCsrf";
 import styles from "./page.module.css";
 
 type Step = "register" | "done";
@@ -19,6 +20,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { csrfFetch } = useCsrf();
   const errorId = useId();
   const statusId = useId();
 
@@ -35,7 +37,7 @@ export default function RegisterPage() {
         body.invitationToken = invitationToken;
       }
 
-      const res = await fetch("/api/v1/auth/register", {
+      const res = await csrfFetch("/api/v1/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

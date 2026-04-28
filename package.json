@@ -40,6 +40,11 @@
     "db:seed:test": "ts-node scripts/seed-test-db.ts",
     "test:visual": "playwright test --config=playwright.visual.config.ts",
     "test:visual:update": "playwright test --config=playwright.visual.config.ts --update-snapshots",
+    "docker:up": "docker-compose up",
+    "docker:up:dev": "docker-compose -f docker-compose.dev.yml up",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f",
     "prepare": "husky"
   },
   "dependencies": {

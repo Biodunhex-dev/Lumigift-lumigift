@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createGiftSchema } from "@/types/schemas";
 import { createGift, getGiftsBySenderPaginated } from "@/server/services/gift.service";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, withCsrf } from "@/server/middleware";
 import type { ApiResponse, Gift } from "@/types";
 import type { GiftPage } from "@/server/services/gift.service";
 
@@ -23,7 +23,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json<ApiResponse<GiftPage>>({ success: true, data: page });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json<ApiResponse<never>>(
@@ -52,4 +52,4 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     { success: true, data: { gift, paymentUrl } },
     { status: 201 }
   );
-});
+}));

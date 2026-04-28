@@ -5,11 +5,11 @@ import pool from "@/lib/db";
 import { getGiftById } from "@/server/services/gift.service";
 import { claimGift } from "@/server/services/claim.service";
 import { claimGiftSchema } from "@/types/schemas";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, withCsrf } from "@/server/middleware";
 import { getInvitationByPhoneAndGift, claimInvitation } from "@/server/services/invitation.service";
 import type { ApiResponse } from "@/types";
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json<ApiResponse<never>>(
@@ -61,4 +61,4 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     success: true,
     data: { txHash },
   });
-});
+}));

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { GiftPreview } from "./GiftPreview";
 import { useState } from "react";
+import { useCsrf } from "@/hooks/useCsrf";
 import styles from "./CreateGiftForm.module.css";
 
 type Step = "form" | "preview";
@@ -18,6 +19,8 @@ export function CreateGiftForm() {
   const [usdcEquivalent, setUsdcEquivalent] = useState("…");
   const [showUnregisteredWarning, setShowUnregisteredWarning] = useState(false);
   const [recipientRegistered, setRecipientRegistered] = useState<boolean | null>(null);
+
+  const { csrfFetch } = useCsrf();
 
   const {
     register,
@@ -33,7 +36,7 @@ export function CreateGiftForm() {
   const onFormSubmit = async (data: CreateGiftInput) => {
     setError(null);
     try {
-      // Check if recipient is registered
+      // Check if recipient is registered (GET — no CSRF needed)
       const checkRes = await fetch(`/api/v1/users?phone=${encodeURIComponent(data.recipientPhone)}`);
       if (checkRes.ok) {
         const checkJson = await checkRes.json();
@@ -47,9 +50,8 @@ export function CreateGiftForm() {
         setRecipientRegistered(true);
       }
 
-      const res = await fetch(
-        `/api/v1/exchange-rate?ngn=${data.amountNgn}`
-      );
+      // GET — no CSRF needed
+      const res = await fetch(`/api/v1/exchange-rate?ngn=${data.amountNgn}`);
       if (res.ok) {
         const json = await res.json();
         setUsdcEquivalent(json.data?.usdc ?? "—");
@@ -65,9 +67,8 @@ export function CreateGiftForm() {
     // Now proceed to fetch exchange rate and preview
     try {
       const data = getValues();
-      const res = await fetch(
-        `/api/v1/exchange-rate?ngn=${data.amountNgn}`
-      );
+      // GET — no CSRF needed
+      const res = await fetch(`/api/v1/exchange-rate?ngn=${data.amountNgn}`);
       if (res.ok) {
         const json = await res.json();
         setUsdcEquivalent(json.data?.usdc ?? "—");
@@ -87,7 +88,7 @@ export function CreateGiftForm() {
     setError(null);
     try {
       const data = getValues();
-      const res = await fetch("/api/v1/gifts", {
+      const res = await csrfFetch("/api/v1/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
