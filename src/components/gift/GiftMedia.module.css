@@ -1,0 +1,13 @@
+.wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md, 8px);
+  background-color: var(--color-surface-muted, #f3f4f6);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
