@@ -1,51 +1,54 @@
 import { NextResponse } from "next/server";
+import pool from "@/lib/db";
+import { getRedisClient } from "@/lib/redis";
 import { serverConfig } from "@/server/config";
 
 /**
- * Health check endpoint for Docker, load balancers, and uptime monitors.
+ * Health check endpoint — excluded from auth middleware.
  * GET /api/health
  *
- * Returns 200 when the app is running. Optionally checks Stellar Horizon
- * connectivity when the `?deep=1` query param is present.
+ * Always returns 200 with { status: 'ok' | 'degraded', timestamp, checks }.
+ * Returns 503 only when all checks fail.
  */
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const deep = searchParams.get("deep") === "1";
+export async function GET() {
+  const [db, redis, horizon] = await Promise.all([
+    checkDb(),
+    checkRedis(),
+    checkHorizon(serverConfig.stellar.horizonUrl),
+  ]);
 
-  const base = {
-    status: "ok" as "ok" | "degraded",
-    timestamp: new Date().toISOString(),
-    service: "lumigift",
-  };
-
-  if (!deep) {
-    return NextResponse.json(base, { status: 200 });
-  }
-
-  // Deep check: verify Stellar Horizon is reachable
-  const horizonStatus = await checkHorizon(serverConfig.stellar.horizonUrl);
-
-  const status = horizonStatus === "ok" ? "ok" : "degraded";
-  const httpStatus = status === "ok" ? 200 : 503;
+  const checks = { db, redis, horizon };
+  const degraded = Object.values(checks).some((s) => s === "error");
+  const status = degraded ? "degraded" : "ok";
 
   return NextResponse.json(
-    {
-      ...base,
-      status,
-      checks: {
-        horizon: horizonStatus,
-      },
-    },
-    { status: httpStatus }
+    { status, timestamp: new Date().toISOString(), checks },
+    { status: degraded ? 503 : 200 }
   );
+}
+
+async function checkDb(): Promise<"ok" | "error"> {
+  try {
+    await pool.query("SELECT 1");
+    return "ok";
+  } catch {
+    return "error";
+  }
+}
+
+async function checkRedis(): Promise<"ok" | "error"> {
+  try {
+    const client = await getRedisClient();
+    await client.ping();
+    return "ok";
+  } catch {
+    return "error";
+  }
 }
 
 async function checkHorizon(url: string): Promise<"ok" | "error"> {
   try {
-    const res = await fetch(url, {
-      method: "GET",
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     return res.ok ? "ok" : "error";
   } catch {
     return "error";
