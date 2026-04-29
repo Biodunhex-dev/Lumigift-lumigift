@@ -471,6 +471,97 @@ mod tests {
     }
 }
 
+// ─── Double-claim integration tests (#54) ────────────────────────────────────
+//
+// Verifies that a second claim attempt after a successful claim is rejected,
+// and that token balances are correct throughout the lifecycle.
+
+#[cfg(test)]
+mod double_claim_tests {
+    use super::*;
+    use soroban_sdk::{
+        testutils::{Address as _, Ledger},
+        token::{Client as TokenClient, StellarAssetClient},
+        Env,
+    };
+
+    fn setup(env: &Env) -> (Address, Address, Address, TokenClient, EscrowContractClient) {
+        env.mock_all_auths();
+        let sender = Address::generate(env);
+        let recipient = Address::generate(env);
+        let token_id = env.register_stellar_asset_contract(sender.clone());
+        let token = TokenClient::new(env, &token_id);
+        StellarAssetClient::new(env, &token_id).mint(&sender, &100_000_000);
+
+        let contract_id = env.register_contract(None, EscrowContract);
+        let client = EscrowContractClient::new(env, &contract_id);
+        client.initialize(&sender, &recipient, &token_id, &100_000_000, &3_601);
+
+        (sender, recipient, token_id, token, client)
+    }
+
+    /// Claim once successfully, then attempt a second claim — must fail with AlreadyClaimed.
+    /// Also verifies recipient receives the full amount and contract balance is zero.
+    #[test]
+    fn test_double_claim_prevention() {
+        let env = Env::default();
+        let (_sender, recipient, _token_id, token, client) = setup(&env);
+
+        // Advance ledger past unlock_time
+        env.ledger().with_mut(|l| l.timestamp = 3_601);
+
+        // First claim must succeed
+        client.claim();
+
+        // Recipient must hold the full escrowed amount
+        assert_eq!(
+            token.balance(&recipient),
+            100_000_000,
+            "recipient must receive the full escrowed amount after first claim"
+        );
+
+        // Contract balance must be zero after claim
+        assert_eq!(
+            token.balance(&client.address),
+            0,
+            "contract balance must be zero after claim"
+        );
+
+        // Second claim must fail with AlreadyClaimed
+        let err = client.try_claim().unwrap_err().unwrap();
+        assert_eq!(
+            err,
+            EscrowError::AlreadyClaimed,
+            "second claim must return AlreadyClaimed"
+        );
+
+        // Balances must remain unchanged after the failed second claim
+        assert_eq!(
+            token.balance(&recipient),
+            100_000_000,
+            "recipient balance must not change after failed second claim"
+        );
+        assert_eq!(
+            token.balance(&client.address),
+            0,
+            "contract balance must remain zero after failed second claim"
+        );
+    }
+
+    /// get_state must reflect claimed=true after a successful claim.
+    #[test]
+    fn test_state_reflects_claimed_after_claim() {
+        let env = Env::default();
+        let (_sender, recipient, _token_id, _token, client) = setup(&env);
+
+        env.ledger().with_mut(|l| l.timestamp = 3_601);
+        client.claim();
+
+        let (_r, _a, _u, claimed) = client.get_state();
+        assert!(claimed, "get_state must return claimed=true after successful claim");
+    }
+}
+
 // ─── Authorization tests (#62) ────────────────────────────────────────────────
 
 #[cfg(test)]
