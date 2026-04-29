@@ -48,6 +48,7 @@ pub enum DataKey {
     Amount,
     UnlockTime,
     Claimed,
+    Cancelled,
 }
 
 // ─── Contract ─────────────────────────────────────────────────────────────────
@@ -154,6 +155,62 @@ impl EscrowContract {
         env.events().publish(
             (Symbol::new(&env, "claimed"),),
             (recipient, amount),
+        );
+
+        Ok(())
+    }
+
+    /// Cancel the escrow. Only callable by the original sender if not yet claimed or cancelled.
+    /// Transfers the full amount back to the sender and sets Cancelled status.
+    pub fn cancel(env: Env) -> Result<(), EscrowError> {
+        let sender: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Sender)
+            .ok_or(EscrowError::NotInitialized)?;
+
+        sender.require_auth();
+
+        let claimed: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Claimed)
+            .unwrap_or(false);
+
+        if claimed {
+            return Err(EscrowError::AlreadyClaimed);
+        }
+
+        let cancelled: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Cancelled)
+            .unwrap_or(false);
+
+        if cancelled {
+            return Err(EscrowError::AlreadyCancelled);
+        }
+
+        let token: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Token)
+            .ok_or(EscrowError::NotInitialized)?;
+
+        let amount: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::Amount)
+            .ok_or(EscrowError::NotInitialized)?;
+
+        env.storage().instance().set(&DataKey::Cancelled, &true);
+
+        let token_client = token::Client::new(&env, &token);
+        token_client.transfer(&env.current_contract_address(), &sender, &amount);
+
+        env.events().publish(
+            (Symbol::new(&env, "cancelled"),),
+            (sender, amount),
         );
 
         Ok(())
@@ -468,6 +525,89 @@ mod tests {
         env.ledger().with_mut(|l| l.timestamp = 13_601);
         client.claim();
         assert_eq!(token.balance(&recipient), 100_000_000);
+    }
+}
+
+// ─── Cancel tests (#45) ───────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod cancel_tests {
+    use super::*;
+    use soroban_sdk::{
+        testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+        token::{Client as TokenClient, StellarAssetClient},
+        Env, IntoVal,
+    };
+
+    fn setup(env: &Env) -> (Address, Address, Address, TokenClient, EscrowContractClient) {
+        env.mock_all_auths();
+        let sender = Address::generate(env);
+        let recipient = Address::generate(env);
+        let token_id = env.register_stellar_asset_contract(sender.clone());
+        let token = TokenClient::new(env, &token_id);
+        StellarAssetClient::new(env, &token_id).mint(&sender, &100_000_000);
+
+        let contract_id = env.register_contract(None, EscrowContract);
+        let client = EscrowContractClient::new(env, &contract_id);
+        client.initialize(&sender, &recipient, &token_id, &100_000_000, &3_601);
+
+        (sender, recipient, token_id, token, client)
+    }
+
+    /// Sender can cancel before claim — funds return to sender.
+    #[test]
+    fn test_cancel_by_sender_returns_funds() {
+        let env = Env::default();
+        let (sender, _recipient, _token_id, token, client) = setup(&env);
+
+        let balance_before = token.balance(&sender);
+        client.cancel();
+        assert_eq!(token.balance(&sender), balance_before + 100_000_000);
+    }
+
+    /// Non-sender (attacker) cannot cancel.
+    #[test]
+    fn test_cancel_by_non_sender_panics() {
+        let env = Env::default();
+        let (_sender, _recipient, _token_id, _token, client) = setup(&env);
+
+        let attacker = Address::generate(&env);
+        client
+            .mock_auths(&[MockAuth {
+                address: &attacker,
+                invoke: &MockAuthInvoke {
+                    contract: &client.address,
+                    fn_name: "cancel",
+                    args: ().into_val(&env),
+                    sub_invokes: &[],
+                },
+            }])
+            .try_cancel()
+            .expect_err("non-sender must not be able to cancel");
+    }
+
+    /// Cancel after claim must fail with AlreadyClaimed.
+    #[test]
+    fn test_cancel_after_claim_returns_error() {
+        let env = Env::default();
+        let (_sender, _recipient, _token_id, _token, client) = setup(&env);
+
+        env.ledger().with_mut(|l| l.timestamp = 3_601);
+        client.claim();
+
+        let err = client.try_cancel().unwrap_err().unwrap();
+        assert_eq!(err, EscrowError::AlreadyClaimed);
+    }
+
+    /// Double cancel must fail with AlreadyCancelled.
+    #[test]
+    fn test_double_cancel_returns_error() {
+        let env = Env::default();
+        let (_sender, _recipient, _token_id, _token, client) = setup(&env);
+
+        client.cancel();
+        let err = client.try_cancel().unwrap_err().unwrap();
+        assert_eq!(err, EscrowError::AlreadyCancelled);
     }
 }
 
