@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createGiftSchema } from "@/types/schemas";
-import { createGift, getGiftsBySenderPaginated } from "@/server/services/gift.service";
+import {
+  createGift,
+  getGiftsBySenderPaginated,
+  getGiftsBySenderPage,
+} from "@/server/services/gift.service";
 import { withErrorHandler, withCsrf } from "@/server/middleware";
 import type { ApiResponse, Gift } from "@/types";
-import type { GiftPage } from "@/server/services/gift.service";
+import type { GiftPage, GiftPageOffset } from "@/server/services/gift.service";
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const session = await getServerSession(authOptions);
@@ -18,8 +24,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     );
   }
   const userId = (session.user as { id: string }).id;
-  const cursor = req.nextUrl.searchParams.get("cursor");
-  const page = await getGiftsBySenderPaginated(userId, cursor, PAGE_SIZE);
+  const { searchParams } = req.nextUrl;
+
+  // Offset-based pagination (page + limit)
+  if (searchParams.has("page") || searchParams.has("limit")) {
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? String(DEFAULT_PAGE), 10) || DEFAULT_PAGE);
+    const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT));
+    const result = await getGiftsBySenderPage(userId, page, limit);
+    return NextResponse.json<ApiResponse<GiftPageOffset>>({ success: true, data: result });
+  }
+
+  // Cursor-based pagination (legacy)
+  const cursor = searchParams.get("cursor");
+  const pageSize = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get("pageSize") ?? "10", 10) || 10));
+  const page = await getGiftsBySenderPaginated(userId, cursor, pageSize);
   return NextResponse.json<ApiResponse<GiftPage>>({ success: true, data: page });
 });
 
