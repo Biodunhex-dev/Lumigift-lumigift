@@ -11,7 +11,7 @@ import { stripHtmlTags } from "@/lib/sanitize";
 import { createAuditLog } from "./audit.service";
 
 // ─── Exchange rate helper ─────────────────────────────────────────────────────
-import { getExchangeRate } from "@/server/services/exchange-rate.service";
+import { getExchangeRate, lockExchangeRate } from "@/server/services/exchange-rate.service";
 
 /**
  * Converts a Nigerian Naira amount to its USDC equivalent using the live
@@ -88,6 +88,9 @@ export async function createGift(
   };
 
   gifts.set(id, gift);
+
+  // Lock the exchange rate for slippage protection (expires in 5 minutes)
+  await lockExchangeRate(id);
 
   // Create audit log for gift creation
   await createAuditLog({
