@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 // Matches /api/* but NOT /api/v1/* and NOT /api/auth/[...nextauth]
 const UNVERSIONED_API = /^\/api\/(?!v\d+\/)(.+)$/;
@@ -39,12 +40,17 @@ export function middleware(req: NextRequest) {
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const csp   = buildCsp(nonce);
 
+  // ── Correlation ID ──────────────────────────────────────────────────────────
+  const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
+
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-correlation-id", correlationId);
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("Content-Security-Policy", csp);
   res.headers.set("x-nonce", nonce);
+  res.headers.set("x-correlation-id", correlationId);
   return res;
 }
 

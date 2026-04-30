@@ -11,7 +11,7 @@ import { stripHtmlTags } from "@/lib/sanitize";
 import { createAuditLog } from "./audit.service";
 
 // ─── Exchange rate helper ─────────────────────────────────────────────────────
-import { getExchangeRate } from "@/server/services/exchange-rate.service";
+import { getExchangeRate, lockExchangeRate } from "@/server/services/exchange-rate.service";
 
 /**
  * Converts a Nigerian Naira amount to its USDC equivalent using the live
@@ -88,6 +88,9 @@ export async function createGift(
   };
 
   gifts.set(id, gift);
+
+  // Lock the exchange rate for slippage protection (expires in 5 minutes)
+  await lockExchangeRate(id);
 
   // Create audit log for gift creation
   await createAuditLog({
@@ -207,6 +210,15 @@ export interface GiftPage {
   nextCursor: string | null;
 }
 
+/** Offset-based paginated result for {@link getGiftsBySenderPage}. */
+export interface GiftPageOffset {
+  data: Gift[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 /**
  * Returns a cursor-paginated page of gifts for a sender, sorted by creation
  * date descending (newest first).
@@ -231,6 +243,34 @@ export async function getGiftsBySenderPaginated(
   const nextCursor = startIndex + limit < all.length ? page[page.length - 1].id : null;
 
   return { gifts: page, total: all.length, nextCursor };
+}
+
+/**
+ * Returns an offset-paginated page of gifts for a sender, sorted newest first.
+ * Max limit is capped at 100 to prevent abuse.
+ *
+ * @param senderId - The authenticated user's ID.
+ * @param page - 1-based page number (default 1).
+ * @param limit - Items per page, max 100 (default 10).
+ * @returns A {@link GiftPageOffset} with data, total, page, limit, totalPages.
+ */
+export async function getGiftsBySenderPage(
+  senderId: string,
+  page: number,
+  limit: number
+): Promise<GiftPageOffset> {
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(100, Math.max(1, limit));
+  const all = [...gifts.values()]
+    .filter((g) => g.senderId === senderId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const offset = (safePage - 1) * safeLimit;
+  const data = all.slice(offset, offset + safeLimit);
+  const total = all.length;
+  const totalPages = Math.ceil(total / safeLimit) || 1;
+
+  return { data, total, page: safePage, limit: safeLimit, totalPages };
 }
 
 /**

@@ -4,6 +4,8 @@ import { serverConfig } from "@/server/config";
 const CACHE_KEY = "rate:NGN:USDC";
 const CACHE_TTL_SEC = 60;
 const FALLBACK_RATE = 1600; // used only if Horizon is unreachable and no cache exists
+const LOCKED_RATE_TTL_SEC = 300; // 5 minutes
+const MAX_SLIPPAGE_PERCENT = 1; // 1% max slippage tolerance
 
 /** Shape returned by {@link getExchangeRate}. */
 export interface ExchangeRateResult {
@@ -74,4 +76,52 @@ export async function getExchangeRate(): Promise<ExchangeRateResult> {
 
     return { ngnPerUsdc: FALLBACK_RATE, stale: true, source: "fallback" };
   }
+}
+
+/**
+ * Locks the current exchange rate for a gift, storing it in Redis for 5 minutes.
+ * Call this at payment initiation time.
+ *
+ * @param giftId - The gift UUID to associate the locked rate with.
+ * @returns The locked rate and its expiry timestamp.
+ */
+export async function lockExchangeRate(
+  giftId: string
+): Promise<{ lockedRate: number; expiresAt: number }> {
+  const { ngnPerUsdc } = await getExchangeRate();
+  const redis = await getRedisClient();
+  const expiresAt = Math.floor(Date.now() / 1000) + LOCKED_RATE_TTL_SEC;
+  await redis.setEx(`rate:locked:${giftId}`, LOCKED_RATE_TTL_SEC, String(ngnPerUsdc));
+  return { lockedRate: ngnPerUsdc, expiresAt };
+}
+
+/**
+ * Validates that the current rate has not deviated more than MAX_SLIPPAGE_PERCENT
+ * from the rate locked at payment initiation.
+ *
+ * @param giftId - The gift UUID whose locked rate to compare against.
+ * @returns `{ valid: true }` if within tolerance, or `{ valid: false, reason }` otherwise.
+ */
+export async function validateSlippage(
+  giftId: string
+): Promise<{ valid: boolean; reason?: string }> {
+  const redis = await getRedisClient();
+  const lockedStr = await redis.get(`rate:locked:${giftId}`);
+
+  if (!lockedStr) {
+    return { valid: false, reason: "rate_expired" };
+  }
+
+  const lockedRate = parseFloat(lockedStr);
+  const { ngnPerUsdc: currentRate } = await getExchangeRate();
+  const deviation = Math.abs(currentRate - lockedRate) / lockedRate * 100;
+
+  if (deviation > MAX_SLIPPAGE_PERCENT) {
+    return {
+      valid: false,
+      reason: `rate_deviated: locked=${lockedRate}, current=${currentRate}, deviation=${deviation.toFixed(2)}%`,
+    };
+  }
+
+  return { valid: true };
 }
