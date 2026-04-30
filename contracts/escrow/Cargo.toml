@@ -18,7 +18,7 @@ name = "escrow_bench"
 harness = false
 
 [dev-dependencies.criterion]
-version = "0.5"
+version = "0.8"
 features = ["html_reports"]
 
 [profile.release]
