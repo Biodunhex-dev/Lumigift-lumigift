@@ -40,16 +40,60 @@ const MIN_AMOUNT: i128 = 10_000_000;
 const MIN_LOCK_DURATION: u64 = 3_600;
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
+//
+// All keys use `instance` storage, which is tied to the contract instance
+// lifetime and is automatically extended when the contract is invoked.
+// Every value is written once during `initialize` and is immutable except
+// for `Claimed`, which transitions from `false` → `true` on a successful claim.
+//
+// Storage model (instance storage):
+//
+//   ┌─────────────┬──────────────┬──────────────────────────────────────────┐
+//   │ DataKey     │ Type         │ Description                              │
+//   ├─────────────┼──────────────┼──────────────────────────────────────────┤
+//   │ Sender      │ Address      │ Gift creator; authorized to initialize   │
+//   │ Recipient   │ Address      │ Intended claimer; authorized to claim    │
+//   │ Token       │ Address      │ USDC contract address (mainnet/testnet)  │
+//   │ Amount      │ i128         │ Locked amount in stroops (≥ 10_000_000)  │
+//   │ UnlockTime  │ u64          │ Unix timestamp after which claim is open │
+//   │ Claimed     │ bool         │ False until claim succeeds; then true    │
+//   └─────────────┴──────────────┴──────────────────────────────────────────┘
+//
+// Valid contract states:
+//
+//   [Uninitialized] ──initialize()──► [Locked] ──(time passes)──► [Unlocked]
+//                                                                       │
+//                                                                  claim()
+//                                                                       │
+//                                                                       ▼
+//                                                                  [Claimed]
 
 #[contracttype]
 pub enum DataKey {
     /// The address authorized to call `upgrade`. Set once during `initialize`.
     Admin,
     Sender,
+
+    /// The address authorized to call `claim` and receive the locked funds.
+    /// `claim` calls `recipient.require_auth()` to enforce this.
     Recipient,
+
+    /// The USDC token contract address on the current network.
+    /// Mainnet: `CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75`
+    /// Testnet: `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`
     Token,
+
+    /// The number of USDC stroops locked in escrow (1 USDC = 10_000_000 stroops).
+    /// Must be ≥ `MIN_AMOUNT` (10_000_000 stroops = 1 USDC).
     Amount,
+
+    /// Unix timestamp (seconds) after which `claim` is permitted.
+    /// Must be at least `MIN_LOCK_DURATION` (3 600 s) after initialization time.
     UnlockTime,
+
+    /// Tracks whether the escrow has been claimed.
+    /// Initialized to `false`; set to `true` atomically before the token
+    /// transfer in `claim` to prevent re-entrancy and double-claim attacks.
     Claimed,
     Cancelled,
 }
