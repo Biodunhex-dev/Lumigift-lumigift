@@ -35,11 +35,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Propagate the per-request nonce to Next.js Script components so
             their inline bootstrapping scripts satisfy the strict CSP. */}
         <Script id="__nonce" nonce={nonce} strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: "" }} />
+        {/* Prevent flash of wrong theme — runs before paint */}
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}else if(window.matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>
         <Providers>

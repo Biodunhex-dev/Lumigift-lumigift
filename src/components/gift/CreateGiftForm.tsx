@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createGiftSchema, type CreateGiftInput } from "@/types/schemas";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { GiftPreview } from "./GiftPreview";
 import { useState } from "react";
@@ -30,6 +31,7 @@ export function CreateGiftForm() {
   } = useForm<CreateGiftInput>({
     resolver: zodResolver(createGiftSchema),
     defaultValues: { paymentProvider: "paystack" },
+    mode: "onBlur",
   });
 
   // Step 1 → Step 2: fetch USDC estimate then show preview
@@ -129,79 +131,74 @@ export function CreateGiftForm() {
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit(onFormSubmit)} noValidate>
-      <h2 className={styles.title}>Send a Gift</h2>
+    <>
+      <form className={styles.form} onSubmit={handleSubmit(onFormSubmit)} noValidate>
+        <h2 className={styles.title}>Send a Gift</h2>
 
-      <Input
-        label="Recipient's Name"
-        placeholder="e.g. Amara"
-        error={errors.recipientName?.message}
-        {...register("recipientName")}
-      />
+        <Input
+          label="Recipient's Name"
+          placeholder="e.g. Amara"
+          error={errors.recipientName?.message}
+          {...register("recipientName")}
+        />
 
-      <Input
-        label="Recipient's Phone"
-        type="tel"
-        placeholder="+2348012345678"
-        error={errors.recipientPhone?.message}
-        {...register("recipientPhone")}
-      />
+        <Input
+          label="Recipient's Phone"
+          type="tel"
+          placeholder="+2348012345678"
+          error={errors.recipientPhone?.message}
+          {...register("recipientPhone")}
+        />
 
-      <Input
-        label="Gift Amount (₦)"
-        type="number"
-        placeholder="5000"
-        min={500}
-        max={500000}
-        error={errors.amountNgn?.message}
-        {...register("amountNgn", { valueAsNumber: true })}
-      />
-      <p className="input-hint">Min ₦500 · Max ₦500,000 · Daily limit ₦1,000,000</p>
+        <Input
+          label="Gift Amount (₦)"
+          type="number"
+          placeholder="5000"
+          min={500}
+          max={500000}
+          error={errors.amountNgn?.message}
+          {...register("amountNgn", { valueAsNumber: true })}
+        />
+        <p className="input-hint">Min ₦500 · Max ₦500,000 · Daily limit ₦1,000,000</p>
 
-      <Input
-        label="Unlock Date & Time"
-        type="datetime-local"
-        error={errors.unlockAt?.message}
-        {...register("unlockAt")}
-      />
+        <Input
+          label="Unlock Date & Time"
+          type="datetime-local"
+          error={errors.unlockAt?.message}
+          {...register("unlockAt")}
+        />
 
-      <div className="input-group">
-        <label className="input-label" htmlFor="message">
-          Personal Message (optional)
-        </label>
-        <textarea
+        <Textarea
+          label="Personal Message (optional)"
           id="message"
-          className="input"
           rows={3}
           placeholder="Write something heartfelt…"
+          error={errors.message?.message}
           {...register("message")}
         />
-        {errors.message && (
-          <span className="input-error-msg">{errors.message.message}</span>
-        )}
-      </div>
 
-      <Button type="submit" fullWidth>
-        Preview Gift →
-      </Button>
-    </form>
+        <Button type="submit" fullWidth>
+          Preview Gift →
+        </Button>
+      </form>
 
-    {showUnregisteredWarning && (
-      <div className={styles.overlay}>
-        <div className={styles.modal}>
-          <h3>Unregistered Recipient</h3>
-          <p>The recipient's phone number is not registered with Lumigift. They will receive an SMS invitation to claim the gift, but must register first.</p>
-          <p>Are you sure you want to proceed?</p>
-          <div className={styles.modalActions}>
-            <Button onClick={onCancelUnregistered} variant="secondary">
-              Cancel
-            </Button>
-            <Button onClick={onProceedUnregistered}>
-              Proceed
-            </Button>
+      {showUnregisteredWarning && (
+        <div className={styles.overlay}>
+          <div className={styles.modal}>
+            <h3>Unregistered Recipient</h3>
+            <p>The recipient's phone number is not registered with Lumigift. They will receive an SMS invitation to claim the gift, but must register first.</p>
+            <p>Are you sure you want to proceed?</p>
+            <div className={styles.modalActions}>
+              <Button onClick={onCancelUnregistered} variant="secondary">
+                Cancel
+              </Button>
+              <Button onClick={onProceedUnregistered}>
+                Proceed
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
+    </>
   );
 }
