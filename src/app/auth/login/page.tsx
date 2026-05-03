@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { useCsrf } from "@/hooks/useCsrf";
 import styles from "./page.module.css";
 
 type Step = "phone" | "otp";
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { csrfFetch } = useCsrf();
   const errorId = useId();
   const statusId = useId();
 
@@ -25,7 +27,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/send-otp", {
+      const res = await csrfFetch("/api/v1/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),

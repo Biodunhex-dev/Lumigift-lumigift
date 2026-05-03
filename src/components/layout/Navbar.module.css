@@ -50,10 +50,27 @@
   font-weight: var(--font-medium);
   color: var(--color-text-secondary);
   transition: color var(--transition-fast);
+  position: relative;
 }
 
 .link:hover {
   color: var(--color-text-primary);
+}
+
+.linkActive {
+  color: var(--color-text-primary);
+  font-weight: var(--font-semibold);
+}
+
+.linkActive::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-primary);
 }
 
 @media (max-width: 640px) {

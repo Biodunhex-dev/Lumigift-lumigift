@@ -56,3 +56,33 @@ export async function sendOtp(phone: string): Promise<string> {
 
   return otp;
 }
+
+/**
+ * Sends a gift invitation SMS to an unregistered recipient.
+ * The invitation includes a link to claim the gift after registering.
+ *
+ * @param phone - E.164-formatted destination phone number.
+ * @param invitationToken - The invitation token for the gift.
+ * @param recipientName - The name of the person sending the gift.
+ * @returns Resolves when the SMS has been dispatched to Termii.
+ * @throws If the Termii API returns a non-2xx response.
+ */
+export async function sendGiftInvitation(
+  phone: string,
+  invitationToken: string,
+  senderName: string
+): Promise<void> {
+  const claimLink = `${serverConfig.app.url}/auth/register?invitation=${encodeURIComponent(invitationToken)}`;
+
+  await termiiClient.post("/sms/send", {
+    to: phone,
+    from: serverConfig.termii.senderId,
+    sms:
+      `${senderName} sent you a gift on Lumigift! 🎁\n` +
+      `Register to claim it: ${claimLink}\n` +
+      `Valid for 30 days.`,
+    type: "plain",
+    channel: "generic",
+    api_key: serverConfig.termii.apiKey,
+  });
+}

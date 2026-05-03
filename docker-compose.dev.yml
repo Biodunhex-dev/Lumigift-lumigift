@@ -1,0 +1,139 @@
+# Development docker-compose with hot reload
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+services:
+  # ─── PostgreSQL Database ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lumigift
+      POSTGRES_PASSWORD: lumigift_dev_password
+      POSTGRES_DB: lumigift
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumigift -d lumigift"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lumigift-network
+
+  # ─── Redis Cache/Queue ──────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --appendfilename appendonly.aof
+      --dir /data
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lumigift-network
+
+  # ─── Next.js Development Server ─────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # App
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXT_PUBLIC_APP_NAME=Lumigift
+      - NODE_ENV=development
+      
+      # Auth
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-replace_with_a_strong_random_secret}
+      - NEXTAUTH_SECRET_PREVIOUS=${NEXTAUTH_SECRET_PREVIOUS:-}
+      - NEXTAUTH_ROTATION_GRACE_HOURS=${NEXTAUTH_ROTATION_GRACE_HOURS:-24}
+      
+      # Database (connects to postgres service)
+      - DATABASE_URL=postgresql://lumigift:lumigift_dev_password@postgres:5432/lumigift
+      - DB_POOL_MIN=${DB_POOL_MIN:-2}
+      - DB_POOL_MAX=${DB_POOL_MAX:-10}
+      - DB_IDLE_TIMEOUT_MS=${DB_IDLE_TIMEOUT_MS:-10000}
+      - DB_CONNECTION_TIMEOUT_MS=${DB_CONNECTION_TIMEOUT_MS:-5000}
+      
+      # Redis (connects to redis service)
+      - REDIS_URL=redis://redis:6379
+      
+      # Stellar / Soroban
+      - STELLAR_NETWORK=${STELLAR_NETWORK:-testnet}
+      - STELLAR_HORIZON_URL=${STELLAR_HORIZON_URL:-https://horizon-testnet.stellar.org}
+      - STELLAR_NETWORK_PASSPHRASE=${STELLAR_NETWORK_PASSPHRASE:-Test SDF Network ; September 2015}
+      - STELLAR_ESCROW_CONTRACT_ID=${STELLAR_ESCROW_CONTRACT_ID:-}
+      - STELLAR_SERVER_SECRET_KEY=${STELLAR_SERVER_SECRET_KEY:-}
+      - STELLAR_RPC_URL=${STELLAR_RPC_URL:-https://soroban-testnet.stellar.org}
+      - STELLAR_SERVER_PUBLIC_KEY=${STELLAR_SERVER_PUBLIC_KEY:-}
+      
+      # USDC
+      - USDC_ISSUER=${USDC_ISSUER:-GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5}
+      - USDC_ASSET_CODE=${USDC_ASSET_CODE:-USDC}
+      
+      # Payments
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY:-}
+      - NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=${NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY:-}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      
+      # SMS / OTP
+      - TERMII_API_KEY=${TERMII_API_KEY:-}
+      - TERMII_SENDER_ID=${TERMII_SENDER_ID:-Lumigift}
+      
+      # Cron
+      - CRON_SECRET=${CRON_SECRET:-}
+      
+      # Gift Limits
+      - GIFT_MIN_AMOUNT_NGN=${GIFT_MIN_AMOUNT_NGN:-500}
+      - GIFT_MAX_AMOUNT_NGN=${GIFT_MAX_AMOUNT_NGN:-500000}
+      - GIFT_DAILY_LIMIT_NGN=${GIFT_DAILY_LIMIT_NGN:-1000000}
+      
+      # Cloudinary
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./next.config.mjs:/app/next.config.mjs:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      # Prevent overwriting node_modules
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lumigift-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  lumigift-network:
+    driver: bridge

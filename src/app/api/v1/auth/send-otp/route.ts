@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOtp } from "@/lib/sms";
 import { storeOtp } from "@/lib/otp";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, withCsrf } from "@/server/middleware";
 import { getRedisClient } from "@/lib/redis";
 import { normalizePhone } from "@/lib/phone";
 import type { ApiResponse } from "@/types";
@@ -21,7 +21,7 @@ async function checkRateLimit(
   return { allowed: count <= limit, retryAfter: ttl };
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
   const body = await req.json();
   const phone = normalizePhone(String(body?.phone ?? ""));
 
@@ -65,4 +65,4 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     success: true,
     data: OTP_RESPONSE,
   });
-});
+}));

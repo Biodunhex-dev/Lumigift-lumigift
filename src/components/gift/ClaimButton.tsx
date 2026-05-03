@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useCsrf } from "@/hooks/useCsrf";
 import type { GiftStatus } from "@/types";
 import styles from "./ClaimButton.module.css";
 
@@ -11,21 +12,20 @@ interface ClaimButtonProps {
   onStatusChange: (status: GiftStatus) => void;
 }
 
-async function postClaim(giftId: string, recipientStellarKey: string): Promise<void> {
-  const res = await fetch(`/api/v1/gifts/${giftId}/claim`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ giftId, recipientStellarKey }),
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error ?? "Claim failed");
-}
-
 export function ClaimButton({ giftId, recipientStellarKey, onStatusChange }: ClaimButtonProps) {
   const [error, setError] = useState<string | null>(null);
+  const { csrfFetch } = useCsrf();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: () => postClaim(giftId, recipientStellarKey),
+    mutationFn: async () => {
+      const res = await csrfFetch(`/api/v1/gifts/${giftId}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ giftId, recipientStellarKey }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Claim failed");
+    },
     onMutate: () => {
       setError(null);
       onStatusChange("claiming" as GiftStatus);

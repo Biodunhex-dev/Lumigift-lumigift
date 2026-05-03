@@ -97,19 +97,94 @@ scripts/
 
 ### Prerequisites
 
-- Node.js ≥ 20
-- npm ≥ 10
+- **Docker & Docker Compose** (recommended for quick setup)
+  - [Docker Desktop](https://www.docker.com/products/docker-desktop/) for Windows/Mac
+  - Docker Engine + Docker Compose for Linux
+- **OR** Manual setup:
+  - Node.js ≥ 20
+  - npm ≥ 10
+  - PostgreSQL ≥ 14
+  - Redis ≥ 7
 - Rust + `wasm32-unknown-unknown` target (for contract work)
 - [Stellar CLI](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli)
 
-### Installation
+### Quick Start with Docker (Recommended)
+
+The easiest way to get started is using Docker, which automatically sets up PostgreSQL, Redis, and the Next.js app:
+
+```bash
+# Clone the repository
+git clone https://github.com/JosephOnuh/Lumigift-lumigift.git
+cd lumigift
+
+# Copy environment file and configure
+cp .env.local.example .env.local
+# Edit .env.local with your API keys and secrets
+
+# Start all services (app, postgres, redis)
+docker-compose up
+
+# The app will be available at http://localhost:3000
+```
+
+**What's included:**
+- ✅ Next.js app running on port 3000
+- ✅ PostgreSQL database on port 5432 (auto-initialized with migrations)
+- ✅ Redis cache/queue on port 6379
+- ✅ Automatic health checks and service dependencies
+- ✅ Hot reload for development (mount your code as volume)
+
+**Useful Docker commands:**
+
+```bash
+# Start in detached mode (background)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop all services
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up --build
+
+# Reset everything (including data)
+docker-compose down -v
+
+# Development mode with hot reload
+docker-compose -f docker-compose.dev.yml up
+```
+
+**Production vs Development:**
+- `docker-compose.yml` - Production build with multi-stage optimization
+- `docker-compose.dev.yml` - Development mode with hot reload and volume mounts
+
+### Manual Installation
+
+If you prefer not to use Docker:
 
 ```bash
 git clone https://github.com/JosephOnuh/Lumigift-lumigift.git
 cd lumigift
 npm install
+
+# Set up PostgreSQL
+createdb lumigift
+psql lumigift < migrations/0001_add_stellar_tx_hash.sql
+psql lumigift < migrations/0002_add_device_tracking.sql
+psql lumigift < migrations/0002_normalize_phone_e164.sql
+psql lumigift < migrations/0003_hash_recipient_phone.sql
+psql lumigift < migrations/0004_gift_invitations.sql
+
+# Set up Redis
+redis-server
+
+# Configure environment
 cp .env.example .env.local
 # Fill in your environment variables
+
+# Start development server
 npm run dev
 ```
 

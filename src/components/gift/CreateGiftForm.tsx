@@ -4,9 +4,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createGiftSchema, type CreateGiftInput } from "@/types/schemas";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { GiftPreview } from "./GiftPreview";
 import { useState } from "react";
+import { useCsrf } from "@/hooks/useCsrf";
 import styles from "./CreateGiftForm.module.css";
 
 type Step = "form" | "preview";
@@ -16,6 +18,10 @@ export function CreateGiftForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usdcEquivalent, setUsdcEquivalent] = useState("…");
+  const [showUnregisteredWarning, setShowUnregisteredWarning] = useState(false);
+  const [recipientRegistered, setRecipientRegistered] = useState<boolean | null>(null);
+
+  const { csrfFetch } = useCsrf();
 
   const {
     register,
@@ -25,15 +31,29 @@ export function CreateGiftForm() {
   } = useForm<CreateGiftInput>({
     resolver: zodResolver(createGiftSchema),
     defaultValues: { paymentProvider: "paystack" },
+    mode: "onBlur",
   });
 
   // Step 1 → Step 2: fetch USDC estimate then show preview
   const onFormSubmit = async (data: CreateGiftInput) => {
     setError(null);
     try {
-      const res = await fetch(
-        `/api/v1/exchange-rate?ngn=${data.amountNgn}`
-      );
+      // Check if recipient is registered (GET — no CSRF needed)
+      const checkRes = await fetch(`/api/v1/users?phone=${encodeURIComponent(data.recipientPhone)}`);
+      if (checkRes.ok) {
+        const checkJson = await checkRes.json();
+        setRecipientRegistered(checkJson.data?.exists ?? false);
+        if (!checkJson.data?.exists) {
+          setShowUnregisteredWarning(true);
+          return; // Don't proceed to preview yet
+        }
+      } else {
+        // If check fails, assume registered to not block
+        setRecipientRegistered(true);
+      }
+
+      // GET — no CSRF needed
+      const res = await fetch(`/api/v1/exchange-rate?ngn=${data.amountNgn}`);
       if (res.ok) {
         const json = await res.json();
         setUsdcEquivalent(json.data?.usdc ?? "—");
@@ -44,22 +64,54 @@ export function CreateGiftForm() {
     setStep("preview");
   };
 
-  // Step 2 → Payment: submit to API
+  const onProceedUnregistered = async () => {
+    setShowUnregisteredWarning(false);
+    // Now proceed to fetch exchange rate and preview
+    try {
+      const data = getValues();
+      // GET — no CSRF needed
+      const res = await fetch(`/api/v1/exchange-rate?ngn=${data.amountNgn}`);
+      if (res.ok) {
+        const json = await res.json();
+        setUsdcEquivalent(json.data?.usdc ?? "—");
+      }
+    } catch {
+      // non-critical
+    }
+    setStep("preview");
+  };
+
+  const onCancelUnregistered = () => {
+    setShowUnregisteredWarning(false);
+  };
+
   const onConfirm = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = getValues();
-      const res = await fetch("/api/v1/gifts", {
+      const res = await csrfFetch("/api/v1/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          recipientIsRegistered: recipientRegistered ?? true,
+        }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        setError(errorData.error || "Failed to create gift");
+        return;
+      }
+
       const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      window.location.href = json.data.paymentUrl;
+      const { paymentUrl } = json.data;
+
+      // Redirect to payment
+      window.location.href = paymentUrl;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -79,61 +131,74 @@ export function CreateGiftForm() {
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit(onFormSubmit)} noValidate>
-      <h2 className={styles.title}>Send a Gift</h2>
+    <>
+      <form className={styles.form} onSubmit={handleSubmit(onFormSubmit)} noValidate>
+        <h2 className={styles.title}>Send a Gift</h2>
 
-      <Input
-        label="Recipient's Name"
-        placeholder="e.g. Amara"
-        error={errors.recipientName?.message}
-        {...register("recipientName")}
-      />
+        <Input
+          label="Recipient's Name"
+          placeholder="e.g. Amara"
+          error={errors.recipientName?.message}
+          {...register("recipientName")}
+        />
 
-      <Input
-        label="Recipient's Phone"
-        type="tel"
-        placeholder="+2348012345678"
-        error={errors.recipientPhone?.message}
-        {...register("recipientPhone")}
-      />
+        <Input
+          label="Recipient's Phone"
+          type="tel"
+          placeholder="+2348012345678"
+          error={errors.recipientPhone?.message}
+          {...register("recipientPhone")}
+        />
 
-      <Input
-        label="Gift Amount (₦)"
-        type="number"
-        placeholder="5000"
-        min={500}
-        max={500000}
-        error={errors.amountNgn?.message}
-        {...register("amountNgn", { valueAsNumber: true })}
-      />
-      <p className="input-hint">Min ₦500 · Max ₦500,000 · Daily limit ₦1,000,000</p>
+        <Input
+          label="Gift Amount (₦)"
+          type="number"
+          placeholder="5000"
+          min={500}
+          max={500000}
+          error={errors.amountNgn?.message}
+          {...register("amountNgn", { valueAsNumber: true })}
+        />
+        <p className="input-hint">Min ₦500 · Max ₦500,000 · Daily limit ₦1,000,000</p>
 
-      <Input
-        label="Unlock Date & Time"
-        type="datetime-local"
-        error={errors.unlockAt?.message}
-        {...register("unlockAt")}
-      />
+        <Input
+          label="Unlock Date & Time"
+          type="datetime-local"
+          error={errors.unlockAt?.message}
+          {...register("unlockAt")}
+        />
 
-      <div className="input-group">
-        <label className="input-label" htmlFor="message">
-          Personal Message (optional)
-        </label>
-        <textarea
+        <Textarea
+          label="Personal Message (optional)"
           id="message"
-          className="input"
           rows={3}
           placeholder="Write something heartfelt…"
+          error={errors.message?.message}
           {...register("message")}
         />
-        {errors.message && (
-          <span className="input-error-msg">{errors.message.message}</span>
-        )}
-      </div>
 
-      <Button type="submit" fullWidth>
-        Preview Gift →
-      </Button>
-    </form>
+        <Button type="submit" fullWidth>
+          Preview Gift →
+        </Button>
+      </form>
+
+      {showUnregisteredWarning && (
+        <div className={styles.overlay}>
+          <div className={styles.modal}>
+            <h3>Unregistered Recipient</h3>
+            <p>The recipient's phone number is not registered with Lumigift. They will receive an SMS invitation to claim the gift, but must register first.</p>
+            <p>Are you sure you want to proceed?</p>
+            <div className={styles.modalActions}>
+              <Button onClick={onCancelUnregistered} variant="secondary">
+                Cancel
+              </Button>
+              <Button onClick={onProceedUnregistered}>
+                Proceed
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

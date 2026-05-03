@@ -26,13 +26,13 @@ This project follows our [Code of Conduct](CODE_OF_CONDUCT.md). By participating
 
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Node.js | ≥ 20 |
-| npm | ≥ 10 |
-| Rust | stable (for contract work) |
-| Stellar CLI | latest |
-| gitleaks | ≥ 8 (required for pre-commit secret scanning) |
+| Tool        | Version                                       |
+| ----------- | --------------------------------------------- |
+| Node.js     | ≥ 20                                          |
+| npm         | ≥ 10                                          |
+| Rust        | stable (for contract work)                    |
+| Stellar CLI | latest                                        |
+| gitleaks    | ≥ 8 (required for pre-commit secret scanning) |
 
 Install gitleaks before your first commit:
 
@@ -137,7 +137,7 @@ contracts/
 
 ## Commit Convention
 
-We use [Conventional Commits](https://www.conventionalcommits.org/):
+We use [Conventional Commits](https://www.conventionalcommits.org/) to enable automated changelog generation:
 
 ```
 <type>(<scope>): <short description>
@@ -146,9 +146,84 @@ Types: feat | fix | docs | style | refactor | perf | test | chore | ci | revert
 ```
 
 Examples:
+
 - `feat(gift): add media upload to gift creation`
 - `fix(contract): prevent double-claim race condition`
 - `docs: update contributing guide`
+
+### Commit Types and Changelog Mapping
+
+| Type       | Description                         | Appears in Changelog |
+| ---------- | ----------------------------------- | -------------------- |
+| `feat`     | New feature                         | ✅ Added             |
+| `fix`      | Bug fix                             | ✅ Fixed             |
+| `docs`     | Documentation only                  | ❌                   |
+| `style`    | Code style (formatting, whitespace) | ❌                   |
+| `refactor` | Code refactoring                    | ❌                   |
+| `perf`     | Performance improvement             | ✅ Changed           |
+| `test`     | Adding or updating tests            | ❌                   |
+| `chore`    | Maintenance tasks                   | ❌                   |
+| `ci`       | CI/CD changes                       | ❌                   |
+| `revert`   | Revert previous commit              | ✅ Fixed             |
+
+**Breaking changes:** Add `BREAKING CHANGE:` in the commit body or append `!` after the type:
+
+```
+feat(api)!: remove deprecated v1 endpoints
+
+BREAKING CHANGE: The /api/v1/legacy endpoints have been removed. Use /api/v2 instead.
+```
+
+---
+
+## Changelog Updates
+
+We maintain [CHANGELOG.md](CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/) format.
+
+### When to Update the Changelog
+
+- **Automated:** Changelog entries are generated from conventional commit messages during release
+- **Manual:** For complex features or breaking changes, add detailed context to the `[Unreleased]` section
+
+### Changelog Sections
+
+Changes are grouped under these categories:
+
+- **Added** — New features (`feat` commits)
+- **Changed** — Changes to existing functionality (`perf`, major `refactor`)
+- **Deprecated** — Features marked for removal
+- **Removed** — Deleted features (breaking changes)
+- **Fixed** — Bug fixes (`fix` commits)
+- **Security** — Security improvements or vulnerability fixes
+
+### Release Process
+
+1. All changes accumulate in the `[Unreleased]` section
+2. On release, the maintainer:
+   - Renames `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`
+   - Creates a new empty `[Unreleased]` section
+   - Updates comparison links at the bottom
+   - Tags the release in Git
+
+### Example Entry
+
+```markdown
+## [1.2.0] - 2024-12-20
+
+### Added
+
+- Gift scheduling for future delivery dates (#45)
+- Email notifications for gift events (#52)
+
+### Fixed
+
+- Race condition in concurrent gift claims (#48)
+- Incorrect timezone handling in unlock scheduler (#51)
+
+### Security
+
+- Implement rate limiting on OTP endpoints (#50)
+```
 
 ---
 
@@ -169,26 +244,26 @@ Both `main` and `develop` are protected branches. The rules below are enforced v
 
 ### `main`
 
-| Rule | Setting |
-|------|---------|
-| Required approving reviews | 1 |
-| Dismiss stale reviews on new push | ✅ |
-| Require status checks to pass | `lint-and-type-check`, `test`, `build`, `contract-test`, `contract-build` |
-| Require branches to be up to date | ✅ |
-| Direct pushes | ❌ Disabled |
-| Force pushes | ❌ Disabled |
-| Branch deletion | ❌ Disabled |
+| Rule                              | Setting                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| Required approving reviews        | 1                                                                         |
+| Dismiss stale reviews on new push | ✅                                                                        |
+| Require status checks to pass     | `lint-and-type-check`, `test`, `build`, `contract-test`, `contract-build` |
+| Require branches to be up to date | ✅                                                                        |
+| Direct pushes                     | ❌ Disabled                                                               |
+| Force pushes                      | ❌ Disabled                                                               |
+| Branch deletion                   | ❌ Disabled                                                               |
 
 ### `develop`
 
-| Rule | Setting |
-|------|---------|
-| Required approving reviews | — |
-| Require status checks to pass | `lint-and-type-check`, `test`, `build`, `contract-test`, `contract-build` |
-| Require branches to be up to date | ✅ |
-| Direct pushes | ❌ Disabled |
-| Force pushes | ❌ Disabled |
-| Branch deletion | ✅ Allowed |
+| Rule                              | Setting                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| Required approving reviews        | —                                                                         |
+| Require status checks to pass     | `lint-and-type-check`, `test`, `build`, `contract-test`, `contract-build` |
+| Require branches to be up to date | ✅                                                                        |
+| Direct pushes                     | ❌ Disabled                                                               |
+| Force pushes                      | ❌ Disabled                                                               |
+| Branch deletion                   | ✅ Allowed                                                                |
 
 ### Why these rules?
 

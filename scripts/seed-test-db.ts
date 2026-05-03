@@ -118,6 +118,33 @@ async function seed() {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gift_invitations (
+        id TEXT PRIMARY KEY,
+        gift_id TEXT NOT NULL,
+        recipient_phone_hash TEXT NOT NULL,
+        recipient_phone TEXT NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_gift_invitations_gift_id FOREIGN KEY (gift_id) REFERENCES gifts(id) ON DELETE CASCADE
+      )
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_gift_invitations_token ON gift_invitations(token)
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_gift_invitations_gift_id ON gift_invitations(gift_id)
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_gift_invitations_recipient_phone_hash ON gift_invitations(recipient_phone_hash)
+    `);
+
     // ── Truncate for clean state ─────────────────────────────────────────────
     await pool.query("TRUNCATE gifts, users RESTART IDENTITY CASCADE");
 

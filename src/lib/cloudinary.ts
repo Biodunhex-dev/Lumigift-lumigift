@@ -11,15 +11,20 @@ export interface CloudinaryUploadResult {
  * never leaves the server.
  *
  * @param file - The `File` object selected by the user.
+ * @param fetchFn - Optional fetch function (use `csrfFetch` from `useCsrf` hook
+ *   to automatically attach the CSRF token). Defaults to the global `fetch`.
  * @returns An object containing the public CDN `url` and the Cloudinary `publicId`.
  * @throws If the server returns a non-OK response or the response body contains
  *   `success: false`.
  */
-export async function uploadGiftMedia(file: File): Promise<CloudinaryUploadResult> {
+export async function uploadGiftMedia(
+  file: File,
+  fetchFn: typeof fetch = fetch
+): Promise<CloudinaryUploadResult> {
   const form = new FormData();
   form.append("file", file);
 
-  const res = await fetch("/api/uploads", { method: "POST", body: form });
+  const res = await fetchFn("/api/uploads", { method: "POST", body: form });
   const body = await res.json();
 
   if (!res.ok || !body.success) {

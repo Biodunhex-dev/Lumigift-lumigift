@@ -5,6 +5,12 @@
  * In production, logs are emitted as JSON to stdout so they can be captured
  * by any log aggregation service (Logtail / Betterstack, Datadog, CloudWatch).
  *
+ * Correlation IDs:
+ *   - Each request is assigned a UUID correlation ID from the
+ *     `x-correlation-id` header, or a new UUID is generated.
+ *   - Use `requestLogger(correlationId)` to get a child logger pre-bound
+ *     with the correlation ID so every log line carries it.
+ *
  * Log shipping:
  *   - Set LOG_AGGREGATION_URL to your Logtail/Betterstack HTTP source URL.
  *   - Set LOG_AGGREGATION_TOKEN to the corresponding ingest token.
@@ -14,29 +20,18 @@
  */
 
 import pino from "pino";
+import { randomUUID } from "crypto";
 
 const isDev = process.env.NODE_ENV !== "production";
 
 function buildTransport() {
-  const url = process.env.LOG_AGGREGATION_URL;
-  const token = process.env.LOG_AGGREGATION_TOKEN;
-
-  if (!isDev && url && token) {
-    // Ship JSON logs to the aggregation endpoint via pino's built-in HTTP transport.
-    return {
-      target: "pino/file",
-      options: { destination: 1 }, // stdout — aggregation agent tails stdout in prod
-    };
-  }
-
   if (isDev) {
     return {
       target: "pino-pretty",
       options: { colorize: true, translateTime: "SYS:standard", ignore: "pid,hostname" },
     };
   }
-
-  return undefined; // plain JSON to stdout
+  return undefined; // plain JSON to stdout in production
 }
 
 export const logger = pino(
@@ -56,6 +51,10 @@ export const logger = pino(
         "*.recipientPhone",
         "req.headers.authorization",
         "req.headers.cookie",
+        "*.token",
+        "*.secret",
+        "*.apiKey",
+        "*.privateKey",
       ],
       censor: "[REDACTED]",
     },
@@ -67,4 +66,21 @@ export const logger = pino(
 /** Child logger pre-bound with a service name label. */
 export function serviceLogger(service: string) {
   return logger.child({ service });
+}
+
+/**
+ * Returns a child logger pre-bound with a correlation ID.
+ * Pass the ID from the `x-correlation-id` request header, or omit to
+ * generate a new UUID.
+ */
+export function requestLogger(correlationId?: string) {
+  return logger.child({ correlationId: correlationId ?? randomUUID() });
+}
+
+/**
+ * Extracts or generates a correlation ID from a Headers object.
+ * Suitable for use in Next.js middleware and route handlers.
+ */
+export function getCorrelationId(headers: Headers): string {
+  return headers.get("x-correlation-id") ?? randomUUID();
 }

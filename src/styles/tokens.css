@@ -1,8 +1,12 @@
 /* ─── Lumigift Design System ────────────────────────────────────────────────────
    Vanilla CSS custom properties — single source of truth for all tokens.
+   Dark theme is the default; light theme overrides via [data-theme="light"].
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* ── Dark theme (default) ─────────────────────────────────────────────────── */
 :root {
+  --color-scheme: dark;
+
   /* Brand */
   --color-brand-primary: #6c3bff;
   --color-brand-primary-hover: #5a2ee0;
@@ -90,4 +94,48 @@
   --max-width-lg: 1024px;
   --max-width-xl: 1280px;
   --max-width-content: 720px;
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --color-scheme: light;
+
+  --color-bg: #f5f5fa;
+  --color-bg-surface: #ffffff;
+  --color-bg-elevated: #eeeef5;
+  --color-border: #d0d0e0;
+  --color-border-subtle: #e4e4f0;
+
+  --color-text-primary: #0d0d14;
+  --color-text-secondary: #4a4a62;
+  --color-text-muted: #8888a0;
+  --color-text-inverse: #f0f0f5;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 24px rgba(108, 59, 255, 0.2);
+}
+
+/* ── System preference: light ─────────────────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-scheme: light;
+
+    --color-bg: #f5f5fa;
+    --color-bg-surface: #ffffff;
+    --color-bg-elevated: #eeeef5;
+    --color-border: #d0d0e0;
+    --color-border-subtle: #e4e4f0;
+
+    --color-text-primary: #0d0d14;
+    --color-text-secondary: #4a4a62;
+    --color-text-muted: #8888a0;
+    --color-text-inverse: #f0f0f5;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+    --shadow-glow: 0 0 24px rgba(108, 59, 255, 0.2);
+  }
 }

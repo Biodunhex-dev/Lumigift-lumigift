@@ -1,5 +1,6 @@
 import crypto from "crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { withErrorHandler, withCsrf } from "@/server/middleware";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_FORMATS = ["jpg", "jpeg", "png", "gif", "webp"];
@@ -20,7 +21,7 @@ function sign(params: Record<string, string | number>): string {
     .digest("hex");
 }
 
-export async function POST() {
+export const POST = withErrorHandler(withCsrf(async (_req: NextRequest) => {
   const timestamp = Math.floor(Date.now() / 1000);
 
   const params: Record<string, string | number> = {
@@ -39,4 +40,4 @@ export async function POST() {
     apiKey: process.env.CLOUDINARY_API_KEY,
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
   });
-}
+}));

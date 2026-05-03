@@ -67,6 +67,7 @@ const secureCookieOptions = {
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
+  jwt: jwtRotationOptions,
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",

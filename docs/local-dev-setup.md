@@ -139,37 +139,60 @@ CLOUDINARY_API_SECRET=<your_api_secret>
 
 ## 4. Create a Stellar testnet account
 
-### macOS / Linux / WSL
+This section walks through every step needed to get a funded testnet account with both XLM and USDC — required for the blockchain integration to work locally.
+
+### 4a. Generate a keypair
 
 ```bash
-# Install Stellar CLI if you haven't already
+# Install Stellar CLI if you haven't already (skip if already installed)
 cargo install --locked stellar-cli --features opt
 
-# Generate a new keypair
+# Generate a new named keypair and store it in the local key store
 stellar keys generate --global lumigift-dev --network testnet
 
-# Print the public key
+# Print the public key (G…)
 stellar keys address lumigift-dev
 
-# Fund it from the testnet friendbot (free XLM)
+# Print the secret key (S…) — copy this into STELLAR_SERVER_SECRET_KEY
+stellar keys show lumigift-dev
+```
+
+> **Keep the secret key safe.** Never commit it to version control. Store it only in `.env.local`, which is git-ignored.
+
+### 4b. Fund with testnet XLM via Friendbot
+
+Friendbot is a free faucet that sends 10 000 XLM to any new testnet account.
+
+**Option A — Stellar CLI (recommended):**
+
+```bash
 stellar keys fund lumigift-dev --network testnet
 ```
 
-Alternatively, use the web friendbot:
+**Option B — HTTP request (useful in CI or scripts):**
+
+```bash
+curl "https://friendbot.stellar.org/?addr=$(stellar keys address lumigift-dev)"
+```
+
+**Option C — Browser:**
+
+Open the URL below, replacing `<YOUR_PUBLIC_KEY>` with the `G…` address printed above:
 
 ```
 https://friendbot.stellar.org/?addr=<YOUR_PUBLIC_KEY>
 ```
 
-Copy the **secret key** into `STELLAR_SERVER_SECRET_KEY`:
+Verify the account is funded:
 
 ```bash
-stellar keys show lumigift-dev   # prints the secret key — keep it safe
+stellar account show lumigift-dev --network testnet
+# Look for "native" balance ≥ 10 000 XLM
 ```
 
-### Establish a USDC trustline
+### 4c. Add a USDC trustline
 
-The server account must trust the testnet USDC asset before it can hold or send USDC:
+Before your account can hold USDC, it must explicitly trust the testnet USDC asset issued by Circle's testnet issuer (`GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`).
 
 ```bash
 stellar tx new change-trust \
@@ -180,9 +203,54 @@ stellar tx new change-trust \
   --submit
 ```
 
-### Fund with testnet USDC
+Verify the trustline was created:
 
-Use the [Stellar Laboratory](https://laboratory.stellar.org/#account-creator?network=test) or the testnet USDC faucet to send USDC to your account.
+```bash
+stellar account show lumigift-dev --network testnet
+# Look for a "USDC" entry under balances (balance will be 0 until funded)
+```
+
+### 4d. Get testnet USDC from the testnet issuer
+
+The testnet USDC issuer accepts payment requests directly — sending any amount of XLM to the issuer account with the memo `USDC` causes it to send USDC back to your account.
+
+**Option A — Stellar CLI:**
+
+```bash
+# Send 1 XLM to the issuer; it will return USDC to your account
+stellar tx new payment \
+  --source-account lumigift-dev \
+  --destination GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 \
+  --asset native \
+  --amount 1 \
+  --network testnet \
+  --sign \
+  --submit
+```
+
+**Option B — Stellar Laboratory (browser UI):**
+
+1. Open [Stellar Laboratory — Transaction Builder](https://laboratory.stellar.org/#txbuilder?network=test).
+2. Set **Source Account** to your public key.
+3. Add a **Payment** operation:
+   - Destination: `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
+   - Asset: `native` (XLM)
+   - Amount: `1`
+4. Sign and submit the transaction.
+
+Verify USDC arrived:
+
+```bash
+stellar account show lumigift-dev --network testnet
+# "USDC" balance should now be > 0
+```
+
+### Summary of values to copy into `.env.local`
+
+| Variable | Where to get it |
+|----------|----------------|
+| `STELLAR_SERVER_SECRET_KEY` | `stellar keys show lumigift-dev` |
+| `USDC_ISSUER` | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` (fixed) |
 
 ---
 

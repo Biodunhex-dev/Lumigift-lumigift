@@ -1,63 +1,62 @@
+import { env } from "./env";
+
 // Central server-side configuration — validated at startup.
-
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) throw new Error(`Missing required environment variable: ${key}`);
-  return value;
-}
-
 export const serverConfig = {
   app: {
-    url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-    name: process.env.NEXT_PUBLIC_APP_NAME ?? "Lumigift",
+    url: env.NEXT_PUBLIC_APP_URL,
+    name: env.NEXT_PUBLIC_APP_NAME,
   },
   stellar: {
-    network: (process.env.STELLAR_NETWORK ?? "testnet") as "testnet" | "mainnet",
-    horizonUrl:
-      process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org",
-    networkPassphrase:
-      process.env.STELLAR_NETWORK_PASSPHRASE ??
-      "Test SDF Network ; September 2015",
-    escrowContractId: process.env.STELLAR_ESCROW_CONTRACT_ID ?? "",
-    serverSecretKey: process.env.STELLAR_SERVER_SECRET_KEY ?? "",
+    network: env.STELLAR_NETWORK,
+    horizonUrl: env.STELLAR_HORIZON_URL,
+    networkPassphrase: env.STELLAR_NETWORK_PASSPHRASE,
+    escrowContractId: env.STELLAR_ESCROW_CONTRACT_ID,
+    serverSecretKey: env.STELLAR_SERVER_SECRET_KEY,
+    rpcUrl: env.STELLAR_RPC_URL,
+    serverPublicKey: env.STELLAR_SERVER_PUBLIC_KEY,
   },
   usdc: {
-    issuer:
-      process.env.USDC_ISSUER ??
-      "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
-    assetCode: process.env.USDC_ASSET_CODE ?? "USDC",
+    issuer: env.USDC_ISSUER,
+    assetCode: env.USDC_ASSET_CODE,
   },
   paystack: {
-    secretKey: process.env.PAYSTACK_SECRET_KEY ?? "",
+    secretKey: env.PAYSTACK_SECRET_KEY,
   },
   stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY ?? "",
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+    secretKey: env.STRIPE_SECRET_KEY,
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET,
   },
   termii: {
-    apiKey: process.env.TERMII_API_KEY ?? "",
-    senderId: process.env.TERMII_SENDER_ID ?? "Lumigift",
+    apiKey: env.TERMII_API_KEY,
+    senderId: env.TERMII_SENDER_ID,
   },
   redis: {
-    url: process.env.REDIS_URL ?? "redis://localhost:6379",
+    url: env.REDIS_URL,
   },
   database: {
-    url: process.env.DATABASE_URL ?? "",
-    poolMin: parseInt(process.env.DB_POOL_MIN ?? "2", 10),
-    poolMax: parseInt(process.env.DB_POOL_MAX ?? "10", 10),
-    idleTimeoutMs: parseInt(process.env.DB_IDLE_TIMEOUT_MS ?? "10000", 10),
-    connectionTimeoutMs: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS ?? "5000", 10),
+    url: env.DATABASE_URL,
+    poolMin: env.DB_POOL_MIN,
+    poolMax: env.DB_POOL_MAX,
+    idleTimeoutMs: env.DB_IDLE_TIMEOUT_MS,
+    connectionTimeoutMs: env.DB_CONNECTION_TIMEOUT_MS,
   },
   giftLimits: {
-    minAmountNgn: parseInt(process.env.GIFT_MIN_AMOUNT_NGN ?? "500", 10),
-    maxAmountNgn: parseInt(process.env.GIFT_MAX_AMOUNT_NGN ?? "500000", 10),
-    dailyLimitNgn: parseInt(process.env.GIFT_DAILY_LIMIT_NGN ?? "1000000", 10),
+    minAmountNgn: env.GIFT_MIN_AMOUNT_NGN,
+    maxAmountNgn: env.GIFT_MAX_AMOUNT_NGN,
+    dailyLimitNgn: env.GIFT_DAILY_LIMIT_NGN,
+  },
+  cloudinary: {
+    cloudName: env.CLOUDINARY_CLOUD_NAME,
+    apiKey: env.CLOUDINARY_API_KEY,
+    apiSecret: env.CLOUDINARY_API_SECRET,
+  },
+  cron: {
+    secret: env.CRON_SECRET,
+  },
+  auth: {
+    secret: env.NEXTAUTH_SECRET,
+    secretPrevious: env.NEXTAUTH_SECRET_PREVIOUS,
+    rotationGraceHours: env.NEXTAUTH_ROTATION_GRACE_HOURS,
+    csrfSecret: env.CSRF_SECRET,
   },
 } as const;
-
-export function validateServerConfig() {
-  requireEnv("DATABASE_URL");
-  requireEnv("NEXTAUTH_SECRET");
-  requireEnv("STELLAR_SERVER_SECRET_KEY");
-  requireEnv("STRIPE_WEBHOOK_SECRET");
-}

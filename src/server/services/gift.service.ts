@@ -1,12 +1,17 @@
 import { randomUUID, createHash } from "crypto";
+import pool from "@/lib/db";
 import type { Gift, GiftStatus } from "@/types";
 import type { CreateGiftInput } from "@/types/schemas";
 import { initializePayment, ngnToKobo } from "@/lib/paystack";
 import { serverConfig } from "@/server/config";
 import { assertValidTransition } from "./gift-state-machine";
+import { createGiftInvitation } from "./invitation.service";
+import { sendGiftInvitation } from "@/lib/sms";
+import { stripHtmlTags } from "@/lib/sanitize";
+import { createAuditLog } from "./audit.service";
 
 // ─── Exchange rate helper ─────────────────────────────────────────────────────
-import { getExchangeRate } from "@/server/services/exchange-rate.service";
+import { getExchangeRate, lockExchangeRate } from "@/server/services/exchange-rate.service";
 
 /**
  * Converts a Nigerian Naira amount to its USDC equivalent using the live
@@ -35,14 +40,18 @@ export const gifts = new Map<string, Gift>();
  * callback confirms the NGN payment, at which point it transitions to
  * `"funded"` and the USDC is locked in the escrow contract.
  *
+ * If the recipient is not registered, an invitation token is created and sent via SMS.
+ *
  * @param senderId - The authenticated user's ID.
  * @param input - Validated gift creation input (recipient, amount, unlock date, etc.).
+ * @param recipientIsRegistered - Whether the recipient is already registered on Lumigift.
  * @returns The created {@link Gift} and the Paystack `paymentUrl` to redirect the user to.
  * @throws If the exchange rate fetch or Paystack initialization fails.
  */
 export async function createGift(
   senderId: string,
-  input: CreateGiftInput
+  input: CreateGiftInput,
+  recipientIsRegistered: boolean = true
 ): Promise<{ gift: Gift; paymentUrl: string }> {
   // ── Daily sending limit check ──────────────────────────────────────────────
   const { dailyLimitNgn } = serverConfig.giftLimits;
@@ -59,15 +68,19 @@ export async function createGift(
 
   const id = randomUUID();
   const amountUsdc = await ngnToUsdc(input.amountNgn);
+  const recipientPhoneHash = hashPhone(input.recipientPhone);
+
+  // Sanitize message content to prevent stored XSS
+  const sanitizedMessage = input.message ? stripHtmlTags(input.message) : undefined;
 
   const gift: Gift = {
     id,
     senderId,
-    recipientPhoneHash: hashPhone(input.recipientPhone),
+    recipientPhoneHash,
     recipientName: input.recipientName,
     amountNgn: input.amountNgn,
     amountUsdc,
-    message: input.message,
+    message: sanitizedMessage,
     unlockAt: new Date(input.unlockAt),
     status: "pending_payment",
     createdAt: new Date(),
@@ -75,6 +88,50 @@ export async function createGift(
   };
 
   gifts.set(id, gift);
+
+  // Lock the exchange rate for slippage protection (expires in 5 minutes)
+  await lockExchangeRate(id);
+
+  // Create audit log for gift creation
+  await createAuditLog({
+    eventType: "gift_created",
+    userId: senderId,
+    giftId: id,
+    amountNgn: input.amountNgn,
+    amountUsdc,
+    metadata: {
+      recipientName: input.recipientName,
+      unlockAt: input.unlockAt,
+      paymentProvider: input.paymentProvider,
+      recipientIsRegistered,
+    },
+  });
+
+  // If recipient is unregistered, create an invitation and send SMS
+  if (!recipientIsRegistered) {
+    try {
+      const invitationToken = await createGiftInvitation(
+        id,
+        recipientPhoneHash,
+        input.recipientPhone
+      );
+
+      // Get sender name for the invitation SMS
+      const { rows } = await pool.query<{ display_name: string }>(
+        "SELECT display_name FROM users WHERE id = $1",
+        [senderId]
+      );
+      const senderName = rows[0]?.display_name || "Someone";
+
+      // Send invitation SMS (fire-and-forget to not block payment flow)
+      sendGiftInvitation(input.recipientPhone, invitationToken, senderName).catch((err) =>
+        console.error("[gift] sendGiftInvitation failed:", err)
+      );
+    } catch (err) {
+      console.error("[gift] Failed to create/send invitation:", err);
+      // Don't block gift creation on invitation failure
+    }
+  }
 
   const payment = await initializePayment({
     email: `${senderId}@lumigift.app`, // placeholder; use real email from user record
@@ -109,9 +166,30 @@ export async function updateGiftStatus(id: string, status: GiftStatus): Promise<
   const gift = gifts.get(id);
   if (!gift) return null;
   assertValidTransition(gift.status, status);
+  const previousStatus = gift.status;
   gift.status = status;
   gift.updatedAt = new Date();
   gifts.set(id, gift);
+
+  // Create audit log for status change
+  const eventType = status === "funded" ? "gift_funded" as const : 
+                    status === "claimed" ? "gift_claimed" as const :
+                    status === "cancelled" ? "gift_cancelled" as const : null;
+
+  if (eventType) {
+    await createAuditLog({
+      eventType,
+      userId: gift.senderId,
+      giftId: id,
+      amountNgn: gift.amountNgn,
+      amountUsdc: gift.amountUsdc,
+      metadata: {
+        previousStatus,
+        newStatus: status,
+      },
+    });
+  }
+
   return gift;
 }
 
@@ -130,6 +208,15 @@ export interface GiftPage {
   gifts: Gift[];
   total: number;
   nextCursor: string | null;
+}
+
+/** Offset-based paginated result for {@link getGiftsBySenderPage}. */
+export interface GiftPageOffset {
+  data: Gift[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 /**
@@ -156,6 +243,34 @@ export async function getGiftsBySenderPaginated(
   const nextCursor = startIndex + limit < all.length ? page[page.length - 1].id : null;
 
   return { gifts: page, total: all.length, nextCursor };
+}
+
+/**
+ * Returns an offset-paginated page of gifts for a sender, sorted newest first.
+ * Max limit is capped at 100 to prevent abuse.
+ *
+ * @param senderId - The authenticated user's ID.
+ * @param page - 1-based page number (default 1).
+ * @param limit - Items per page, max 100 (default 10).
+ * @returns A {@link GiftPageOffset} with data, total, page, limit, totalPages.
+ */
+export async function getGiftsBySenderPage(
+  senderId: string,
+  page: number,
+  limit: number
+): Promise<GiftPageOffset> {
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(100, Math.max(1, limit));
+  const all = [...gifts.values()]
+    .filter((g) => g.senderId === senderId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const offset = (safePage - 1) * safeLimit;
+  const data = all.slice(offset, offset + safeLimit);
+  const total = all.length;
+  const totalPages = Math.ceil(total / safeLimit) || 1;
+
+  return { data, total, page: safePage, limit: safeLimit, totalPages };
 }
 
 /**

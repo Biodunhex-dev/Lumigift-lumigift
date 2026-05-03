@@ -8,6 +8,7 @@ import {
   Networks,
 } from "@stellar/stellar-sdk";
 import { serverConfig } from "@/server/config";
+import logger from "@/lib/logger";
 import type { StellarAccount, StellarBalance } from "@/types";
 
 const server = new Horizon.Server(serverConfig.stellar.horizonUrl);
@@ -18,6 +19,45 @@ const networkPassphrase =
   serverConfig.stellar.network === "mainnet"
     ? Networks.PUBLIC
     : Networks.TESTNET;
+
+/**
+ * Derives and returns the server's Stellar public key from the configured secret.
+ * Emits an audit log entry so key rotations are traceable in the log stream.
+ */
+export function getServerPublicKey(): string {
+  const keypair = Keypair.fromSecret(serverConfig.stellar.serverSecretKey);
+  const publicKey = keypair.publicKey();
+  logger.info(
+    { event: "stellar_key_loaded", publicKey },
+    "Stellar server signing key loaded"
+  );
+  return publicKey;
+}
+
+/**
+ * Emits a structured audit log entry recording a key rotation event.
+ * Call this after successfully deploying a new signing key.
+ *
+ * @param oldPublicKey - The public key of the rotated-out key.
+ * @param newPublicKey - The public key of the newly active key.
+ * @param rotatedBy - Identifier of the engineer or process that performed the rotation.
+ */
+export function auditLogKeyRotation(
+  oldPublicKey: string,
+  newPublicKey: string,
+  rotatedBy: string
+): void {
+  logger.info(
+    {
+      event: "stellar_key_rotated",
+      oldPublicKey,
+      newPublicKey,
+      rotatedBy,
+      timestamp: new Date().toISOString(),
+    },
+    "STELLAR_SERVER_SECRET_KEY rotated"
+  );
+}
 
 /**
  * Loads a Stellar account from Horizon and maps its balances to a typed shape.

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getGiftById, cancelGift } from "@/server/services/gift.service";
 import { refundPayment } from "@/lib/paystack";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, withCsrf } from "@/server/middleware";
 import type { ApiResponse, Gift } from "@/types";
 
 export const GET = withErrorHandler(
@@ -37,7 +37,7 @@ export const GET = withErrorHandler(
 );
 
 export const DELETE = withErrorHandler(
-  async (_req: NextRequest, context: unknown) => {
+  withCsrf(async (_req: NextRequest, context: unknown) => {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json<ApiResponse<never>>(
@@ -88,5 +88,5 @@ export const DELETE = withErrorHandler(
       success: true,
       data: cancelled!,
     });
-  }
+  })
 );
