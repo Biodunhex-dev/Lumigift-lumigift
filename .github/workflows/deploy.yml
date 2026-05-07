@@ -55,7 +55,7 @@ jobs:
 
       # Swap this step for your hosting provider (Vercel, Railway, Fly.io, etc.)
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
+        uses: amondnet/vercel-action@v42
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
