@@ -73,7 +73,7 @@ export async function acceptInvitation(invitationId: string): Promise<boolean> {
     `UPDATE gift_invitations SET status = 'accepted', updated_at = NOW() WHERE id = $1`,
     [invitationId]
   );
-  return rowCount > 0;
+  return (rowCount ?? 0) > 0;
 }
 
 /**
@@ -87,7 +87,7 @@ export async function claimInvitation(invitationId: string): Promise<boolean> {
     `UPDATE gift_invitations SET status = 'claimed', updated_at = NOW() WHERE id = $1`,
     [invitationId]
   );
-  return rowCount > 0;
+  return (rowCount ?? 0) > 0;
 }
 
 /**

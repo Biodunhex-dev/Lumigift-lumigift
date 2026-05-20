@@ -13,11 +13,12 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   reporter: process.env.CI ? "github" : "list",
+  expect: {
+    toHaveScreenshot: { maxDiffPixelRatio: 0.001 },
+  },
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     trace: "off",
-    // Pixel threshold: fail if diff > 0.1%
-    toHaveScreenshot: { maxDiffPixelRatio: 0.001 },
   },
   projects: [
     {

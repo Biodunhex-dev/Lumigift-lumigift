@@ -23,7 +23,7 @@ export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
 
   if (!parsed.success) {
     return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: parsed.error.errors[0].message },
+      { success: false, error: parsed.error.issues[0].message },
       { status: 400 }
     );
   }

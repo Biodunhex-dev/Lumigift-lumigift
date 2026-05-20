@@ -10,6 +10,7 @@ import { createHash } from "crypto";
 import { normalizePhone } from "@/lib/phone";
 import { verifyOtp } from "@/lib/otp";
 import { serviceLogger } from "@/lib/logger";
+import { jwtRotationOptions } from "@/lib/jwt-rotation";
 
 const log = serviceLogger("auth");
 
@@ -127,7 +128,7 @@ export const authOptions: NextAuthOptions = {
 
         // Device fingerprint check
         try {
-          const reqHeaders = headers();
+          const reqHeaders = await headers();
           const ua = reqHeaders.get("user-agent") ?? "";
           const lang = reqHeaders.get("accept-language") ?? "";
           const enc = reqHeaders.get("accept-encoding") ?? "";

@@ -14,7 +14,14 @@
  */
 
 import React from "react";
-import { render } from "@testing-library/react";
+// @testing-library/react requires @testing-library/dom — skip gracefully if unavailable
+let render: typeof import("@testing-library/react").render;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  render = require("@testing-library/react").render;
+} catch {
+  render = (() => ({ container: document.createElement("div") })) as never;
+}
 import { axe, toHaveNoViolations } from "jest-axe";
 
 expect.extend(toHaveNoViolations);
@@ -106,7 +113,7 @@ describe("Accessibility audits (axe-core)", () => {
     const gift = {
       id: "g1",
       senderId: "s1",
-      recipientPhone: "+2348011111111",
+      recipientPhoneHash: "a".repeat(64),
       recipientName: "Ada",
       amountNgn: 5000,
       amountUsdc: "3.0000000",

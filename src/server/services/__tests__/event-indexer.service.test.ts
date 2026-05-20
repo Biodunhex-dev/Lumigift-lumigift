@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { indexEscrowEvents } from "../event-indexer.service";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────

@@ -18,7 +18,8 @@ export function sanitizeMessage(input: string | undefined): string | undefined {
 }
 
 /**
- * Strips all HTML tags from input string.
+ * Strips all HTML tags and their content for dangerous tags (script, style),
+ * and strips only the tags (preserving content) for all other tags.
  * Used as an additional layer of defense before storing user content.
  *
  * @param input - Raw user input string
@@ -26,5 +27,9 @@ export function sanitizeMessage(input: string | undefined): string | undefined {
  */
 export function stripHtmlTags(input: string | undefined): string | undefined {
   if (!input) return input;
-  return input.replace(/<[^>]*>/g, "");
+  // First remove dangerous tags along with their content
+  return input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<[^>]*>/g, "");
 }

@@ -405,7 +405,7 @@ mod tests {
         Env,
     };
 
-    fn create_token(env: &Env, admin: &Address) -> (Address, TokenClient, StellarAssetClient) {
+    fn create_token<'a>(env: &'a Env, admin: &Address) -> (Address, TokenClient<'a>, StellarAssetClient<'a>) {
         let token_id = env.register_stellar_asset_contract(admin.clone());
         let token = TokenClient::new(env, &token_id);
         let token_admin = StellarAssetClient::new(env, &token_id);
@@ -700,7 +700,7 @@ mod cancel_tests {
 
         let contract_id = env.register_contract(None, EscrowContract);
         let client = EscrowContractClient::new(env, &contract_id);
-        client.initialize(&sender, &recipient, &token_id, &100_000_000, &3_601);
+        client.initialize(&sender, &sender, &recipient, &token_id, &100_000_000, &3_601);
 
         (sender, recipient, token_id, token, client)
     }
@@ -919,7 +919,7 @@ mod property_tests {
     fn setup_initialized_escrow(
         amount: i128,
         unlock_time: u64,
-    ) -> (Env, Address, TokenClient, EscrowContractClient) {
+    ) -> (Env, Address, TokenClient<'static>, EscrowContractClient<'static>) {
         let env = Env::default();
         env.mock_all_auths();
 
@@ -957,7 +957,8 @@ mod property_tests {
             let contract_balance = token.balance(&client.address);
             prop_assert_eq!(
                 contract_balance, 0,
-                "contract balance must be 0 after claim, got {contract_balance}"
+                "contract balance must be 0 after claim, got {}",
+                contract_balance
             );
         }
     }
@@ -983,7 +984,8 @@ mod property_tests {
             let received = token.balance(&recipient) - balance_before;
             prop_assert_eq!(
                 received, amount,
-                "recipient received {received} but expected {amount}"
+                "recipient received {} but expected {}",
+                received, amount
             );
         }
     }
@@ -1012,7 +1014,8 @@ mod property_tests {
             prop_assert_eq!(
                 err,
                 EscrowError::StillLocked,
-                "expected StillLocked at ts={ledger_ts}, unlock={unlock_time}"
+                "expected StillLocked at ts={}, unlock={}",
+                ledger_ts, unlock_time
             );
         }
     }

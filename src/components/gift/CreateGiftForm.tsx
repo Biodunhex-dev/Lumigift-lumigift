@@ -2,7 +2,8 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createGiftSchema, type CreateGiftInput } from "@/types/schemas";
+import { createGiftSchema } from "@/types/schemas";
+import type { CreateGiftInput } from "@/types/schemas";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
@@ -29,8 +30,9 @@ export function CreateGiftForm() {
     getValues,
     formState: { errors },
   } = useForm<CreateGiftInput>({
-    resolver: zodResolver(createGiftSchema),
-    defaultValues: { paymentProvider: "paystack" },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(createGiftSchema) as any,
+    defaultValues: { paymentProvider: "paystack", recipientIsRegistered: true },
     mode: "onBlur",
   });
 
@@ -132,7 +134,7 @@ export function CreateGiftForm() {
 
   return (
     <>
-      <form className={styles.form} onSubmit={handleSubmit(onFormSubmit)} noValidate>
+      <form className={styles.form} onSubmit={handleSubmit(onFormSubmit as Parameters<typeof handleSubmit>[0])} noValidate>
         <h2 className={styles.title}>Send a Gift</h2>
 
         <Input

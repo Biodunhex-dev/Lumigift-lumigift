@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 
 // Matches /api/* but NOT /api/v1/* and NOT /api/auth/[...nextauth]
 const UNVERSIONED_API = /^\/api\/(?!v\d+\/)(.+)$/;
@@ -24,7 +23,7 @@ function buildCsp(nonce: string): string {
     .join("; ");
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   // ── API redirect ────────────────────────────────────────────────────────────
   const match = req.nextUrl.pathname.match(UNVERSIONED_API);
   if (match) {
@@ -41,7 +40,7 @@ export function middleware(req: NextRequest) {
   const csp   = buildCsp(nonce);
 
   // ── Correlation ID ──────────────────────────────────────────────────────────
-  const correlationId = req.headers.get("x-correlation-id") ?? randomUUID();
+  const correlationId = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);

@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Tests for CSRF token generation, verification, and the withCsrf middleware.
  * Covers the acceptance criteria:
  *   - Token generated per session and stored in HttpOnly cookie
@@ -119,18 +121,18 @@ function makeRequest(
   method: string,
   opts: { headerToken?: string; cookieToken?: string } = {}
 ): NextRequest {
-  const req = new NextRequest("http://localhost/api/v1/gifts", { method });
+  const headers: Record<string, string> = {};
 
   if (opts.headerToken) {
-    req.headers.set("x-csrf-token", opts.headerToken);
+    headers["x-csrf-token"] = opts.headerToken;
   }
 
   if (opts.cookieToken) {
-    // NextRequest cookies are read-only in tests; we set via the Cookie header
-    req.headers.set("cookie", `csrf-token=${opts.cookieToken}`);
+    // Set cookie in the constructor so NextRequest can parse it
+    headers["cookie"] = `csrf-token=${opts.cookieToken}`;
   }
 
-  return req;
+  return new NextRequest("http://localhost/api/v1/gifts", { method, headers });
 }
 
 describe("withCsrf middleware", () => {

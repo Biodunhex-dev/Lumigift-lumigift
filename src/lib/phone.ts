@@ -34,6 +34,16 @@ export function normalizePhone(raw: string): string | null {
     return null;
   }
 
-  // Final sanity check: E.164 is + followed by 10–15 digits
-  return /^\+[1-9]\d{9,14}$/.test(e164) ? e164 : null;
+  // Final sanity check: E.164 is + followed by 10–15 digits, first digit non-zero
+  if (!/^\+[1-9]\d{9,14}$/.test(e164)) return null;
+
+  // For Nigerian numbers (+234...), the subscriber number must not be all zeros
+  // and must start with a valid Nigerian network prefix (7, 8, or 9)
+  if (e164.startsWith("+234")) {
+    const subscriber = e164.slice(4); // 10 digits after +234
+    if (subscriber.length !== 10) return null;
+    if (!/^[789]/.test(subscriber)) return null;
+  }
+
+  return e164;
 }

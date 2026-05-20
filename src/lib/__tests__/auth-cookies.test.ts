@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Verifies that NextAuth cookie options enforce HttpOnly, Secure (in production),
  * and SameSite=Strict on all session-related cookies.
  *

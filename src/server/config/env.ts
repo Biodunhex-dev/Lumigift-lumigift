@@ -77,7 +77,7 @@ export function validateEnv(): Env {
 
     result.error.issues.forEach((issue) => {
       const path = issue.path.join(".");
-      if (issue.code === "invalid_type" && issue.received === "undefined") {
+      if (issue.code === "invalid_type" && "received" in issue && issue.received === "undefined") {
         missingVars.push(path);
       } else {
         invalidVars.push(`${path}: ${issue.message}`);
@@ -97,6 +97,13 @@ export function validateEnv(): Env {
     errorMessage += "\n\nPlease check your .env file and ensure all required variables are set correctly.";
 
     console.error(errorMessage);
+    // During build (NEXT_PHASE=phase-production-build) or non-production,
+    // return a stub so module-level imports don't crash.
+    // At runtime with missing vars the app will fail fast on first request.
+    if (process.env.NEXT_PHASE === "phase-production-build" || process.env.NODE_ENV !== "production") {
+      // Return a stub with empty strings so destructuring doesn't throw
+      return new Proxy({} as Env, { get: () => "" });
+    }
     process.exit(1);
   }
 

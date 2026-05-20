@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import crypto from "crypto";
+import { NextRequest } from "next/server";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -42,14 +43,14 @@ function makeRequest(body: object, signature?: string) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("POST /api/payments (Paystack webhook)", () => {
-  let POST: (req: Request) => Promise<Response>;
+  let POST: (req: NextRequest) => Promise<Response>;
 
   beforeEach(async () => {
     jest.resetModules();
     mockGet.mockReset();
     mockSet.mockReset();
     mockUpdateGiftStatus.mockReset();
-    ({ POST } = await import("@/app/api/payments/route"));
+    ({ POST } = await import("@/app/api/v1/payments/route"));
   });
 
   it("returns 401 for invalid signature", async () => {

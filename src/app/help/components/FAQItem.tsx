@@ -6,7 +6,7 @@ import styles from "./FAQItem.module.css";
 export interface FAQItemProps {
   id: string;
   question: string;
-  answer: string | JSX.Element;
+  answer: string | React.ReactNode;
   className?: string;
 }
 

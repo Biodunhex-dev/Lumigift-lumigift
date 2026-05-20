@@ -8,7 +8,7 @@ import {
   Networks,
 } from "@stellar/stellar-sdk";
 import { serverConfig } from "@/server/config";
-import logger from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import type { StellarAccount, StellarBalance } from "@/types";
 
 const server = new Horizon.Server(serverConfig.stellar.horizonUrl);

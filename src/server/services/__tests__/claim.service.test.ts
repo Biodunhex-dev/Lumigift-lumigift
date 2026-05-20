@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Unit tests for src/server/services/claim.service.ts
  *
  * Mocks:

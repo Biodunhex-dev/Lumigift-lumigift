@@ -1,7 +1,7 @@
 /**
  * Typed Soroban contract event shapes for the Lumigift escrow contract.
  *
- * The contract emits two events:
+ * The contract emits three events:
  *
  *   initialized  → topic: ["initialized"]
  *                  data:  (sender: Address, recipient: Address, amount: i128, unlock_time: u64)
@@ -9,12 +9,12 @@
  *   claimed      → topic: ["claimed"]
  *                  data:  (recipient: Address, amount: i128)
  *
- *   cancelled    → topic: ["cancelled"]   (reserved for future contract version)
+ *   cancelled    → topic: ["cancelled"]
  *                  data:  (sender: Address, amount: i128)
  */
 
 import {
-  SorobanRpc,
+  rpc as SorobanRpc,
   Address,
   scValToNative,
   xdr,
@@ -85,38 +85,56 @@ export interface FetchEventsResult {
 /**
  * Fetches Soroban contract events for the escrow contract from the RPC node,
  * starting after `startCursor`.
- *
- * Uses `getEvents` (Soroban RPC) rather than Horizon SSE so the call is a
- * single HTTP request — safe to drive from a cron job.
  */
 export async function fetchEscrowEvents(
   opts: FetchEventsOptions
 ): Promise<FetchEventsResult> {
   const rpc = new SorobanRpc.Server(opts.rpcUrl, { allowHttp: false });
 
-  const response = await rpc.getEvents({
-    startLedger: cursorToLedger(opts.startCursor),
-    filters: [
-      {
-        type: "contract",
-        contractIds: [opts.contractId],
-        topics: [
-          ["*"],          // match any single-element topic (initialized / claimed / cancelled)
+  const isGenesis = opts.startCursor === CURSOR_GENESIS;
+
+  // stellar-sdk v15: GetEventsRequest is either ledger-range or cursor mode
+  const request: SorobanRpc.Api.GetEventsRequest = isGenesis
+    ? {
+        filters: [
+          {
+            type: "contract",
+            contractIds: [opts.contractId],
+            topics: [["*"]],
+          },
         ],
-      },
-    ],
-    limit: opts.limit ?? 200,
-  });
+        startLedger: 0,
+        limit: opts.limit ?? 200,
+      }
+    : {
+        filters: [
+          {
+            type: "contract",
+            contractIds: [opts.contractId],
+            topics: [["*"]],
+          },
+        ],
+        cursor: opts.startCursor,
+        limit: opts.limit ?? 200,
+      };
+
+  const response = await rpc.getEvents(request);
 
   const events: EscrowEvent[] = [];
   let latestCursor = opts.startCursor;
 
   for (const raw of response.events) {
-    const parsed = parseRawEvent(raw);
+    const parsed = parseEventResponse(raw);
     if (parsed) {
       events.push(parsed);
-      latestCursor = raw.pagingToken;
+      // Use the event id as cursor (stellar-sdk v15 uses id for pagination)
+      latestCursor = raw.id;
     }
+  }
+
+  // If the response has a cursor field, prefer it
+  if (response.cursor && response.cursor !== opts.startCursor) {
+    latestCursor = response.cursor;
   }
 
   return { events, latestCursor };
@@ -124,25 +142,21 @@ export async function fetchEscrowEvents(
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function cursorToLedger(cursor: string): number {
-  if (cursor === CURSOR_GENESIS) return 0;
-  // Cursor format: "<ledger_seq_padded>-<event_index_padded>"
-  const ledger = parseInt(cursor.split("-")[0], 10);
-  return isNaN(ledger) ? 0 : ledger;
-}
-
-function parseRawEvent(
-  raw: SorobanRpc.Api.RawEventResponse
+function parseEventResponse(
+  raw: SorobanRpc.Api.EventResponse
 ): EscrowEvent | null {
-  // topic[0] is the event name symbol
-  const topicVals = raw.topic as xdr.ScVal[];
-  if (!topicVals?.length) return null;
+  // In stellar-sdk v15, EventResponse.topic is already xdr.ScVal[]
+  // and EventResponse.value is already xdr.ScVal
+  if (!raw.topic?.length) return null;
 
-  const eventName = scValToNative(topicVals[0]) as string;
-  const dataVal = raw.value as xdr.ScVal;
+  const eventName = scValToNative(raw.topic[0]) as string;
+  const dataVal = raw.value;
+
+  // contractId is Contract | undefined in v15 — get the string address
+  const contractId = raw.contractId?.toString() ?? "";
 
   const base = {
-    contractId: raw.contractId ?? "",
+    contractId,
     ledger: raw.ledger,
     ledgerClosedAt: raw.ledgerClosedAt,
     txHash: raw.txHash,
@@ -169,7 +183,6 @@ function decodeInitializedEvent(
   base: Omit<InitializedEvent, "type" | "sender" | "recipient" | "amount" | "unlockTime">,
   data: xdr.ScVal
 ): InitializedEvent {
-  // data = (sender: Address, recipient: Address, amount: i128, unlock_time: u64)
   const items = data.vec();
   if (!items || items.length !== 4) throw new Error("unexpected initialized data shape");
   const [senderVal, recipientVal, amountVal, unlockTimeVal] = items;
@@ -187,7 +200,6 @@ function decodeClaimedEvent(
   base: Omit<ClaimedEvent, "type" | "recipient" | "amount">,
   data: xdr.ScVal
 ): ClaimedEvent {
-  // data = (recipient: Address, amount: i128)
   const items = data.vec();
   if (!items || items.length !== 2) throw new Error("unexpected claimed data shape");
   const [recipientVal, amountVal] = items;
@@ -203,7 +215,6 @@ function decodeCancelledEvent(
   base: Omit<CancelledEvent, "type" | "sender" | "amount">,
   data: xdr.ScVal
 ): CancelledEvent {
-  // data = (sender: Address, amount: i128)
   const items = data.vec();
   if (!items || items.length !== 2) throw new Error("unexpected cancelled data shape");
   const [senderVal, amountVal] = items;

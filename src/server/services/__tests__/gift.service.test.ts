@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Unit tests for src/server/services/gift.service.ts
  *
  * Mocks:
@@ -20,6 +22,33 @@ jest.mock("@/lib/paystack", () => ({
 
 jest.mock("@/server/services/exchange-rate.service", () => ({
   getExchangeRate: jest.fn(),
+  lockExchangeRate: jest.fn().mockResolvedValue({ lockedRate: 1600, expiresAt: 9999999999 }),
+}));
+
+jest.mock("@/server/config", () => ({
+  serverConfig: {
+    app: { url: "http://localhost:3000", name: "Lumigift" },
+    giftLimits: { minAmountNgn: 500, maxAmountNgn: 500000, dailyLimitNgn: 1000000 },
+    paystack: { secretKey: "sk_test_placeholder" },
+    stellar: { network: "testnet", horizonUrl: "https://horizon-testnet.stellar.org" },
+    usdc: { assetCode: "USDC", issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5" },
+  },
+}));
+
+jest.mock("@/lib/db", () => ({
+  default: { query: jest.fn().mockResolvedValue({ rows: [{ display_name: "Test User" }] }) },
+}));
+
+jest.mock("@/server/services/audit.service", () => ({
+  createAuditLog: jest.fn().mockResolvedValue("audit-id"),
+}));
+
+jest.mock("@/server/services/invitation.service", () => ({
+  createGiftInvitation: jest.fn().mockResolvedValue("invite-token"),
+}));
+
+jest.mock("@/lib/sms", () => ({
+  sendGiftInvitation: jest.fn().mockResolvedValue(undefined),
 }));
 
 import {
@@ -52,6 +81,7 @@ const baseInput = {
   message: "Happy birthday!",
   unlockAt: new Date(Date.now() + 86_400_000).toISOString(), // tomorrow
   paymentProvider: "paystack" as const,
+  recipientIsRegistered: true,
 };
 
 // ─── Setup / Teardown ─────────────────────────────────────────────────────────

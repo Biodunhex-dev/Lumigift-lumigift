@@ -69,6 +69,7 @@ export async function verifyOtp(
   }
 
   // Success — clean up
-  await redis.del(`otp:${phone}`, `otp:attempts:${phone}`);
+  await redis.del(`otp:${phone}`);
+  await redis.del(`otp:attempts:${phone}`);
   return { success: true };
 }

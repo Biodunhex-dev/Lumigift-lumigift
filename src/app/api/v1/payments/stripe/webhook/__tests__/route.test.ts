@@ -1,25 +1,42 @@
-import { POST } from "../route";
-import { NextRequest } from "next/server";
+/**
+ * @jest-environment node
+ */
 
-// Mock stripe module
-jest.mock("stripe", () => {
-  return jest.fn().mockImplementation(() => ({
-    webhooks: {
-      constructEvent: jest.fn(),
-    },
-  }));
-});
+// mockConstructEvent must be defined before jest.mock hoisting
+const mockConstructEvent = jest.fn();
 
-// Mock gift service
+jest.mock("stripe", () =>
+  jest.fn().mockImplementation(() => ({
+    webhooks: { constructEvent: mockConstructEvent },
+  }))
+);
+
 jest.mock("@/server/services/gift.service", () => ({
   updateGiftStatus: jest.fn(),
 }));
 
-const MOCK_SECRET = "whsec_test_secret";
+import { NextRequest } from "next/server";
 
-beforeAll(() => {
-  process.env.STRIPE_WEBHOOK_SECRET = MOCK_SECRET;
+// POST is loaded lazily inside beforeAll so env vars are set first
+let POST: (req: NextRequest) => Promise<Response>;
+
+beforeAll(async () => {
+  process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_secret";
   process.env.STRIPE_SECRET_KEY = "sk_test_key";
+
+  // jest.isolateModules ensures the route is freshly required with env already set
+  await new Promise<void>((resolve) => {
+    jest.isolateModules(async () => {
+      const mod = await import("../route");
+      POST = mod.POST;
+      resolve();
+    });
+  });
+});
+
+afterAll(() => {
+  delete process.env.STRIPE_WEBHOOK_SECRET;
+  delete process.env.STRIPE_SECRET_KEY;
 });
 
 function makeRequest(body: string, sig: string | null) {
@@ -31,11 +48,8 @@ function makeRequest(body: string, sig: string | null) {
 }
 
 describe("POST /api/payments/stripe/webhook", () => {
-  let stripe: jest.Mocked<{ webhooks: { constructEvent: jest.Mock } }>;
-
-  beforeEach(async () => {
-    const Stripe = (await import("stripe")).default as jest.MockedClass<typeof import("stripe").default>;
-    stripe = new Stripe("", {} as never) as never;
+  beforeEach(() => {
+    mockConstructEvent.mockReset();
   });
 
   it("returns 400 when Stripe-Signature header is missing", async () => {
@@ -46,10 +60,9 @@ describe("POST /api/payments/stripe/webhook", () => {
   });
 
   it("returns 400 when signature is invalid", async () => {
-    stripe.webhooks.constructEvent.mockImplementation(() => {
+    mockConstructEvent.mockImplementation(() => {
       throw new Error("No signatures found matching the expected signature");
     });
-
     const res = await POST(makeRequest("{}", "t=123,v1=badsig"));
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -58,11 +71,10 @@ describe("POST /api/payments/stripe/webhook", () => {
   });
 
   it("returns 200 when signature is valid", async () => {
-    stripe.webhooks.constructEvent.mockReturnValue({
+    mockConstructEvent.mockReturnValue({
       type: "payment_intent.succeeded",
       data: { object: { metadata: {} } },
-    } as never);
-
+    });
     const res = await POST(makeRequest("{}", "t=123,v1=validsig"));
     expect(res.status).toBe(200);
     const body = await res.json();
