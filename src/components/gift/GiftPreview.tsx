@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import type { CreateGiftInput } from "@/types/schemas";
 import { Button } from "@/components/ui/Button";
+import { formatNGN, formatUSDC } from "@/lib/currency";
 import styles from "./GiftPreview.module.css";
 
 interface GiftPreviewProps {
@@ -26,6 +27,8 @@ export function GiftPreview({
     new Date(data.unlockAt),
     "MMM d, yyyy 'at' h:mm a"
   );
+  const usdcLabel =
+    usdcEquivalent === "—" || usdcEquivalent === "…" ? usdcEquivalent : formatUSDC(usdcEquivalent);
 
   return (
     <div className={styles.preview}>
@@ -46,8 +49,8 @@ export function GiftPreview({
         <div className={styles.row}>
           <dt>Amount</dt>
           <dd>
-            ₦{data.amountNgn.toLocaleString("en-NG")}
-            <span className={styles.usdc}> ≈ {usdcEquivalent} USDC</span>
+            {formatNGN(data.amountNgn)}
+            <span className={styles.usdc}> ≈ {usdcLabel}</span>
           </dd>
         </div>
         <div className={styles.row}>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizePhone } from "@/lib/phone";
+import { formatNGN } from "@/lib/currency";
 
 const e164Phone = z
   .string()
@@ -19,11 +20,11 @@ export const createGiftSchema = z.object({
     .number()
     .min(
       parseInt(process.env.GIFT_MIN_AMOUNT_NGN ?? "500", 10),
-      `Minimum gift amount is ₦${parseInt(process.env.GIFT_MIN_AMOUNT_NGN ?? "500", 10).toLocaleString()}`
+      `Minimum gift amount is ${formatNGN(parseInt(process.env.GIFT_MIN_AMOUNT_NGN ?? "500", 10))}`
     )
     .max(
       parseInt(process.env.GIFT_MAX_AMOUNT_NGN ?? "500000", 10),
-      `Maximum gift amount is ₦${parseInt(process.env.GIFT_MAX_AMOUNT_NGN ?? "500000", 10).toLocaleString()}`
+      `Maximum gift amount is ${formatNGN(parseInt(process.env.GIFT_MAX_AMOUNT_NGN ?? "500000", 10))}`
     ),
   message: z.string().max(500, "Message cannot exceed 500 characters").optional(),
   unlockAt: z

@@ -3,6 +3,7 @@ import pool from "@/lib/db";
 import type { Gift, GiftStatus } from "@/types";
 import type { CreateGiftInput } from "@/types/schemas";
 import { initializePayment, ngnToKobo } from "@/lib/paystack";
+import { formatNGN } from "@/lib/currency";
 import { serverConfig } from "@/server/config";
 import { assertValidTransition } from "./gift-state-machine";
 import { createGiftInvitation } from "./invitation.service";
@@ -61,9 +62,7 @@ export async function createGift(
     .filter((g) => g.senderId === senderId && g.createdAt >= todayStart)
     .reduce((sum, g) => sum + g.amountNgn, 0);
   if (todayTotal + input.amountNgn > dailyLimitNgn) {
-    throw new Error(
-      `Daily sending limit of ₦${dailyLimitNgn.toLocaleString()} exceeded`
-    );
+    throw new Error(`Daily sending limit of ${formatNGN(dailyLimitNgn)} exceeded`);
   }
 
   const id = randomUUID();

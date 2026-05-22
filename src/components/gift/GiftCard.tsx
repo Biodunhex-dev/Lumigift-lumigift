@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import type { Gift, GiftStatus } from "@/types";
 import { GiftStatusBadge } from "@/components/ui/GiftStatusBadge";
+import { formatNGN } from "@/lib/currency";
 import { ClaimButton } from "./ClaimButton";
 import { ShareGift } from "./ShareGift";
 import styles from "./GiftCard.module.css";
@@ -30,9 +31,7 @@ export function GiftCard({ gift, perspective, recipientStellarKey }: GiftCardPro
     perspective === "sender" ? `To: ${gift.recipientName}` : "A gift for you";
 
   const amountLabel =
-    isLocked && perspective === "recipient"
-      ? "amount hidden"
-      : `₦${gift.amountNgn.toLocaleString("en-NG")}`;
+    isLocked && perspective === "recipient" ? "amount hidden" : formatNGN(gift.amountNgn);
 
   const unlockLabel = `${isLocked ? "Unlocks" : "Unlocked"} ${format(
     new Date(gift.unlockAt),
@@ -75,7 +74,7 @@ export function GiftCard({ gift, perspective, recipientStellarKey }: GiftCardPro
         {isLocked && perspective === "recipient" ? (
           <span className={styles.hidden}>₦ ••••••</span>
         ) : (
-          <span>₦{gift.amountNgn.toLocaleString("en-NG")}</span>
+          <span>{formatNGN(gift.amountNgn)}</span>
         )}
       </div>
 

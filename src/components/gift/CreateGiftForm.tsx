@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { GiftPreview } from "./GiftPreview";
 import { useState } from "react";
 import { useCsrf } from "@/hooks/useCsrf";
+import { formatNGN } from "@/lib/currency";
 import styles from "./CreateGiftForm.module.css";
 
 type Step = "form" | "preview";
@@ -161,7 +162,9 @@ export function CreateGiftForm() {
           error={errors.amountNgn?.message}
           {...register("amountNgn", { valueAsNumber: true })}
         />
-        <p className="input-hint">Min ₦500 · Max ₦500,000 · Daily limit ₦1,000,000</p>
+        <p className="input-hint">
+          Min {formatNGN(500)} · Max {formatNGN(500000)} · Daily limit {formatNGN(1000000)}
+        </p>
 
         <Input
           label="Unlock Date & Time"
