@@ -15,6 +15,7 @@ export const createGiftSchema = z.object({
     .datetime()
     .refine((val) => new Date(val) > new Date(), "Unlock date must be in the future"),
   paymentProvider: z.enum(["paystack", "stripe"]),
+  recipientEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
 });
 
 export const verifyOtpSchema = z.object({

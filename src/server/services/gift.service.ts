@@ -3,6 +3,7 @@ import type { Gift, GiftStatus } from "@/types";
 import type { CreateGiftInput } from "@/types/schemas";
 import { initializePayment, ngnToKobo } from "@/lib/paystack";
 import { serverConfig } from "@/server/config";
+import { sendGiftReceivedEmail } from "@/lib/email";
 
 // ─── Exchange rate helper ─────────────────────────────────────────────────────
 // In production, fetch from a live FX provider (e.g. Stellar DEX or Coingecko).
@@ -27,6 +28,7 @@ export async function createGift(
     senderId,
     recipientPhone: input.recipientPhone,
     recipientName: input.recipientName,
+    recipientEmail: input.recipientEmail || undefined,
     amountNgn: input.amountNgn,
     amountUsdc,
     message: input.message,
@@ -45,6 +47,14 @@ export async function createGift(
     callbackUrl: `${serverConfig.app.url}/api/payments/callback?giftId=${id}`,
     metadata: { giftId: id, senderId },
   });
+
+  // Send email notification if recipient email is available (optional field)
+  if (input.recipientEmail) {
+    sendGiftReceivedEmail(input.recipientEmail, {
+      recipientName: input.recipientName,
+      unlockAt: new Date(input.unlockAt),
+    }).catch((err) => console.error("[email] gift_received failed:", err));
+  }
 
   return { gift, paymentUrl: payment.authorizationUrl };
 }
@@ -68,4 +78,8 @@ export async function getGiftsBySender(senderId: string): Promise<Gift[]> {
 
 export async function getGiftsByRecipient(phone: string): Promise<Gift[]> {
   return [...gifts.values()].filter((g) => g.recipientPhone === phone);
+}
+
+export async function getGiftsByStatus(status: GiftStatus): Promise<Gift[]> {
+  return [...gifts.values()].filter((g) => g.status === status);
 }

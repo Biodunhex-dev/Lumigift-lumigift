@@ -25,6 +25,7 @@ export interface Gift {
   senderId: string;
   recipientPhone: string;
   recipientName: string;
+  recipientEmail?: string;
   amountNgn: number;
   amountUsdc: string; // on-chain amount as string to preserve precision
   message?: string;

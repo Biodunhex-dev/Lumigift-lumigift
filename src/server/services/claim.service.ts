@@ -1,5 +1,6 @@
 import { sendUsdcPayment } from "@/lib/stellar";
 import { updateGiftStatus } from "./gift.service";
+import { sendClaimConfirmationEmail } from "@/lib/email";
 import type { Gift } from "@/types";
 
 /**
@@ -16,6 +17,13 @@ export async function claimGift(
 
   const txHash = await sendUsdcPayment(recipientStellarKey, gift.amountUsdc);
   await updateGiftStatus(gift.id, "claimed");
+
+  if (gift.recipientEmail) {
+    sendClaimConfirmationEmail(gift.recipientEmail, {
+      recipientName: gift.recipientName,
+      amountNgn: gift.amountNgn,
+    }).catch((err) => console.error("[email] claim_confirmation failed:", err));
+  }
 
   return { txHash };
 }
