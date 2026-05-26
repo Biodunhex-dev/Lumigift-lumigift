@@ -48,5 +48,12 @@ export async function claimGift(
   await storeClaimTxHash(gift.id, txHash);
   await updateGiftStatus(gift.id, "claimed");
 
+  if (gift.recipientEmail) {
+    sendClaimConfirmationEmail(gift.recipientEmail, {
+      recipientName: gift.recipientName,
+      amountNgn: gift.amountNgn,
+    }).catch((err) => console.error("[email] claim_confirmation failed:", err));
+  }
+
   return { txHash };
 }

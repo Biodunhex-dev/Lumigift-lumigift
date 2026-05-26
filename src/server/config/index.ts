@@ -30,6 +30,10 @@ export const serverConfig = {
     apiKey: env.TERMII_API_KEY,
     senderId: env.TERMII_SENDER_ID,
   },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY ?? "",
+    fromEmail: process.env.RESEND_FROM_EMAIL ?? "Lumigift <gifts@lumigift.com>",
+  },
   redis: {
     url: env.REDIS_URL,
   },

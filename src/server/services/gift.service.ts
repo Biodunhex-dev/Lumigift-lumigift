@@ -78,6 +78,7 @@ export async function createGift(
     senderId,
     recipientPhoneHash,
     recipientName: input.recipientName,
+    recipientEmail: input.recipientEmail || undefined,
     amountNgn: input.amountNgn,
     amountUsdc,
     message: sanitizedMessage,
@@ -140,6 +141,14 @@ export async function createGift(
     callbackUrl: `${serverConfig.app.url}/api/payments/callback?giftId=${id}`,
     metadata: { giftId: id, senderId },
   });
+
+  // Send email notification if recipient email is available (optional field)
+  if (input.recipientEmail) {
+    sendGiftReceivedEmail(input.recipientEmail, {
+      recipientName: input.recipientName,
+      unlockAt: new Date(input.unlockAt),
+    }).catch((err) => console.error("[email] gift_received failed:", err));
+  }
 
   return { gift, paymentUrl: payment.authorizationUrl };
 }
@@ -355,4 +364,8 @@ export async function updateGiftStatusIdempotent(
     );
     return gift;
   }
+}
+
+export async function getGiftsByStatus(status: GiftStatus): Promise<Gift[]> {
+  return [...gifts.values()].filter((g) => g.status === status);
 }

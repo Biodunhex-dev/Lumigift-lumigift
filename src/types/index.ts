@@ -27,6 +27,7 @@ export interface Gift {
   /** SHA-256 hex digest of the E.164 recipient phone number. Plaintext is never persisted. */
   recipientPhoneHash: string;
   recipientName: string;
+  recipientEmail?: string;
   amountNgn: number;
   amountUsdc: string; // on-chain amount as string to preserve precision
   message?: string;
