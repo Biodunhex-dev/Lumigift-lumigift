@@ -27,10 +27,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
 
   // Offset-based pagination (page + limit)
-  if (searchParams.has("page") || searchParams.has("limit")) {
+  if (searchParams.has("page") || searchParams.has("limit") || searchParams.has("status")) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? String(DEFAULT_PAGE), 10) || DEFAULT_PAGE);
     const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT));
-    const result = await getGiftsBySenderPage(userId, page, limit);
+    const status = searchParams.get("status") as any; // simplified for now
+    const result = await getGiftsBySenderPage(userId, page, limit, status);
     return NextResponse.json<ApiResponse<GiftPageOffset>>({ success: true, data: result });
   }
 
