@@ -1,6 +1,6 @@
 {
   "name": "lumigift",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": false,
   "description": "A full-stack gifting platform on Stellar — send time-locked cash gifts that unlock on a surprise date.",
   "keywords": [
