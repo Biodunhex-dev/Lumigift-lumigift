@@ -18,6 +18,19 @@ pool.on("error", (err) => {
 });
 
 /**
+ * Returns current pool metrics for monitoring.
+ */
+export function getPoolMetrics() {
+  return {
+    totalConnections: pool.totalCount,
+    idleConnections: pool.idleCount,
+    waitingRequests: pool.waitingCount,
+    maxConnections: serverConfig.database.poolMax,
+    minConnections: serverConfig.database.poolMin,
+  };
+}
+
+/**
  * Logs the current connection pool configuration to stdout.
  * Useful for verifying pool settings on application startup.
  */
