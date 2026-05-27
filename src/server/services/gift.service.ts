@@ -225,6 +225,12 @@ export interface GiftPageOffset {
   page: number;
   limit: number;
   totalPages: number;
+  counts: {
+    all: number;
+    pending: number;
+    claimed: number;
+    expired: number;
+  };
 }
 
 /**
@@ -260,25 +266,46 @@ export async function getGiftsBySenderPaginated(
  * @param senderId - The authenticated user's ID.
  * @param page - 1-based page number (default 1).
  * @param limit - Items per page, max 100 (default 10).
+ * @param status - Optional status to filter by.
  * @returns A {@link GiftPageOffset} with data, total, page, limit, totalPages.
  */
 export async function getGiftsBySenderPage(
   senderId: string,
   page: number,
-  limit: number
+  limit: number,
+  status?: GiftStatus
 ): Promise<GiftPageOffset> {
   const safePage = Math.max(1, page);
   const safeLimit = Math.min(100, Math.max(1, limit));
-  const all = [...gifts.values()]
-    .filter((g) => g.senderId === senderId)
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const allGifts = [...gifts.values()].filter((g) => g.senderId === senderId);
+
+  const counts = {
+    all: allGifts.length,
+    pending: allGifts.filter((g) =>
+      ["pending_payment", "funded", "locked", "scheduled", "unlocked"].includes(g.status)
+    ).length,
+    claimed: allGifts.filter((g) => g.status === "claimed").length,
+    expired: allGifts.filter((g) => g.status === "expired").length,
+  };
+
+  let filtered = allGifts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  if (status && status !== ("all" as any)) {
+    if (status === ("pending" as any)) {
+      filtered = filtered.filter((g) =>
+        ["pending_payment", "funded", "locked", "scheduled", "unlocked"].includes(g.status)
+      );
+    } else {
+      filtered = filtered.filter((g) => g.status === status);
+    }
+  }
 
   const offset = (safePage - 1) * safeLimit;
-  const data = all.slice(offset, offset + safeLimit);
-  const total = all.length;
+  const data = filtered.slice(offset, offset + safeLimit);
+  const total = filtered.length;
   const totalPages = Math.ceil(total / safeLimit) || 1;
 
-  return { data, total, page: safePage, limit: safeLimit, totalPages };
+  return { data, total, page: safePage, limit: safeLimit, totalPages, counts };
 }
 
 /**
