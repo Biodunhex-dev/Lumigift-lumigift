@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useCsrf } from "@/hooks/useCsrf";
+import confetti from "canvas-confetti";
 import type { GiftStatus } from "@/types";
 import styles from "./ClaimButton.module.css";
 
@@ -15,6 +16,37 @@ interface ClaimButtonProps {
 export function ClaimButton({ giftId, recipientStellarKey, onStatusChange }: ClaimButtonProps) {
   const [error, setError] = useState<string | null>(null);
   const { csrfFetch } = useCsrf();
+
+  const triggerConfetti = () => {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) return;
+
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: any = setInterval(function () {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+      });
+    }, 250);
+  };
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
@@ -32,6 +64,7 @@ export function ClaimButton({ giftId, recipientStellarKey, onStatusChange }: Cla
     },
     onSuccess: () => {
       onStatusChange("claimed");
+      triggerConfetti();
     },
     onError: (err: Error) => {
       onStatusChange("unlocked");
