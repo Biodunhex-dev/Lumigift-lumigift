@@ -343,6 +343,26 @@ impl EscrowContract {
         Ok(())
     }
 
+    /// Change the admin address. Restricted to current admin.
+    pub fn set_admin(env: Env, new_admin: Address) -> Result<(), EscrowError> {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .ok_or(EscrowError::NotInitialized)?;
+
+        admin.require_auth();
+
+        env.storage().instance().set(&DataKey::Admin, &new_admin);
+
+        env.events().publish(
+            (Symbol::new(&env, "admin_changed"),),
+            (admin, new_admin, env.ledger().timestamp()),
+        );
+
+        Ok(())
+    }
+
     /// Read-only: returns (recipient, amount, unlock_time, claimed).
     pub fn get_state(env: Env) -> Result<(Address, i128, u64, bool), EscrowError> {
         let recipient: Address = env
@@ -387,7 +407,7 @@ impl EscrowContract {
 
         env.events().publish(
             (Symbol::new(&env, "upgraded"),),
-            (old_wasm_hash, new_wasm_hash),
+            (old_wasm_hash, new_wasm_hash, env.ledger().timestamp()),
         );
 
         Ok(())

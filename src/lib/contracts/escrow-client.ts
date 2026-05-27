@@ -122,6 +122,34 @@ export class EscrowClient {
     return SorobanRpc.assembleTransaction(tx, simResult).build().toXDR();
   }
 
+  // ── set_admin ────────────────────────────────────────────────────────────────
+
+  /**
+   * Builds a `set_admin` transaction envelope ready to be signed and submitted.
+   *
+   * @param newAdmin - Stellar public key of the new admin (G…)
+   */
+  async buildSetAdmin(newAdmin: string): Promise<string> {
+    const account = await this.rpc.getAccount(this.opts.sourcePublicKey);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: this.opts.networkPassphrase,
+    })
+      .addOperation(
+        this.contract.call("set_admin", new Address(newAdmin).toScVal())
+      )
+      .setTimeout(30)
+      .build();
+
+    const simResult = await this.rpc.simulateTransaction(tx);
+    if (SorobanRpc.Api.isSimulationError(simResult)) {
+      throw parseContractError(simResult.error);
+    }
+
+    return SorobanRpc.assembleTransaction(tx, simResult).build().toXDR();
+  }
+
   // ── claim ────────────────────────────────────────────────────────────────────
 
   /**

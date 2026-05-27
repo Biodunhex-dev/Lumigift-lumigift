@@ -18,7 +18,27 @@ state are preserved — only the executable code changes.
 **Event emitted:**
 ```
 topic:  ("upgraded",)
-data:   (old_contract_address, new_wasm_hash)
+data:   (old_wasm_hash, new_wasm_hash, timestamp)
+```
+
+### Changing the Admin
+
+The admin address can be changed using the `set_admin(new_admin: Address)`
+function. This is restricted to the current admin.
+
+```bash
+stellar contract invoke \
+  --network testnet \
+  --source <CURRENT_ADMIN_SECRET> \
+  --id <CONTRACT_ID> \
+  -- set_admin \
+  --new_admin <NEW_ADMIN_ADDRESS>
+```
+
+**Event emitted:**
+```
+topic:  ("admin_changed",)
+data:   (old_admin, new_admin, timestamp)
 ```
 
 ### Step-by-step: upgrading a deployed contract
