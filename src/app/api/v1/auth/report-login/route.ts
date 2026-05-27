@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, validateRequest } from "@/server/middleware";
+import { reportLoginBodySchema, reportLoginQuerySchema } from "@/lib/schemas";
 import type { ApiResponse } from "@/types";
 
 /**
@@ -10,24 +11,28 @@ import type { ApiResponse } from "@/types";
  * Also accepts GET with ?uid=&fp= so the SMS link works directly in a browser.
  */
 async function handler(req: NextRequest): Promise<NextResponse> {
-  let userId: string | null;
-  let fingerprint: string | null;
+  let userId: string;
+  let fingerprint: string;
 
   if (req.method === "GET") {
+    // ── Validate GET query params ──────────────────────────────────────────
     const { searchParams } = new URL(req.url);
-    userId = searchParams.get("uid");
-    fingerprint = searchParams.get("fp");
-  } else {
-    const body = await req.json().catch(() => ({}));
-    userId = body.userId ?? null;
-    fingerprint = body.fingerprint ?? null;
-  }
+    const queryValidation = validateRequest(reportLoginQuerySchema, {
+      uid: searchParams.get("uid") ?? undefined,
+      fp: searchParams.get("fp") ?? undefined,
+    });
+    if (!queryValidation.success) return queryValidation.errorResponse;
 
-  if (!userId || !fingerprint) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "userId and fingerprint are required" },
-      { status: 400 }
-    );
+    userId = queryValidation.data.uid;
+    fingerprint = queryValidation.data.fp;
+  } else {
+    // ── Validate POST request body ─────────────────────────────────────────
+    const body = await req.json().catch(() => ({}));
+    const bodyValidation = validateRequest(reportLoginBodySchema, body);
+    if (!bodyValidation.success) return bodyValidation.errorResponse;
+
+    userId = bodyValidation.data.userId;
+    fingerprint = bodyValidation.data.fingerprint;
   }
 
   await pool.query(

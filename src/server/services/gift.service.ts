@@ -10,6 +10,7 @@ import { createGiftInvitation } from "./invitation.service";
 import { sendGiftInvitation } from "@/lib/sms";
 import { stripHtmlTags } from "@/lib/sanitize";
 import { createAuditLog } from "./audit.service";
+import { sendGiftReceivedEmail } from "@/lib/email";
 
 // ─── Exchange rate helper ─────────────────────────────────────────────────────
 import { getExchangeRate, lockExchangeRate } from "@/server/services/exchange-rate.service";
@@ -146,7 +147,7 @@ export async function createGift(
     sendGiftReceivedEmail(input.recipientEmail, {
       recipientName: input.recipientName,
       unlockAt: new Date(input.unlockAt),
-    }).catch((err) => console.error("[email] gift_received failed:", err));
+    }).catch((err: unknown) => console.error("[email] gift_received failed:", err));
   }
 
   return { gift, paymentUrl: payment.authorizationUrl };

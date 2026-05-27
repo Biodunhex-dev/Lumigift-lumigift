@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withErrorHandler, rateLimit } from "@/server/middleware";
+import { withErrorHandler, rateLimit, validateRequest, searchParamsToObject } from "@/server/middleware";
 import { requireAdmin } from "@/server/middleware/admin";
 import { adminListGifts, logAdminAction, type AdminGiftPage } from "@/server/services/admin-gift.service";
-import type { ApiResponse, GiftStatus } from "@/types";
+import { adminGiftsQuerySchema } from "@/lib/schemas";
+import type { ApiResponse } from "@/types";
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const auth = await requireAdmin();
@@ -16,12 +17,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  const { searchParams } = req.nextUrl;
+  // ── Validate query params ────────────────────────────────────────────────
+  const validation = validateRequest(
+    adminGiftsQuerySchema,
+    searchParamsToObject(req.nextUrl.searchParams)
+  );
+  if (!validation.success) return validation.errorResponse;
+
+  const { search, status, cursor, limit: queryLimit } = validation.data;
+
   const page = adminListGifts({
-    search: searchParams.get("search") ?? undefined,
-    status: (searchParams.get("status") as GiftStatus) ?? undefined,
-    cursor: searchParams.get("cursor") ?? undefined,
-    limit: searchParams.has("limit") ? Number(searchParams.get("limit")) : undefined,
+    search,
+    status,
+    cursor,
+    limit: queryLimit,
   });
 
   logAdminAction(auth.userId, "list_gifts", "all");

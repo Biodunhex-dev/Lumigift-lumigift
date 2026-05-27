@@ -84,6 +84,17 @@ export interface ApiError {
   success: false;
   error: string;
   code?: string;
+  /** Structured field-level validation errors (populated for 400 validation failures). */
+  errors?: Array<{ path: string; message: string }>;
+}
+
+/**
+ * Specific variant of ApiError used when Zod schema validation fails.
+ * Always includes a structured `errors` array.
+ */
+export interface ApiValidationError extends ApiError {
+  error: "Validation failed";
+  errors: Array<{ path: string; message: string }>;
 }
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
