@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createGiftSchema, type CreateGiftInput } from "@/types/schemas";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { TemplateSelector } from "./TemplateSelector";
 import { WizardProgress } from "./WizardProgress";
 import { GiftPreviewCard } from "./GiftPreviewCard";
@@ -27,16 +28,21 @@ export function GiftWizard() {
 
   const {
     register,
+    watch,
     handleSubmit,
     trigger,
     getValues,
     setValue,
     formState: { errors },
   } = useForm<CreateGiftInput>({
-    resolver: zodResolver(createGiftSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(createGiftSchema) as any,
     defaultValues: { paymentProvider: "paystack" },
     mode: "onTouched",
   });
+
+  const recipientPhone = watch("recipientPhone");
+  const watchedUnlockAt = watch("unlockAt");
 
   function handleTemplateSelect(tpl: GiftTemplate) {
     setTemplate(tpl);
@@ -148,10 +154,12 @@ export function GiftWizard() {
       {step === STEP_UNLOCK && (
         <div className={styles.stepContent}>
           <h2 className={styles.stepTitle}>When should it unlock?</h2>
-          <Input
-            label="Unlock Date &amp; Time"
-            type="datetime-local"
+          <DateTimePicker
+            label="Unlock Date & Time"
+            id="unlockAt"
             error={errors.unlockAt?.message}
+            selectedDate={watchedUnlockAt}
+            recipientPhone={recipientPhone}
             {...register("unlockAt")}
           />
           <div className={styles.nav}>
