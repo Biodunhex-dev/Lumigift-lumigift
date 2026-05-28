@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import styles from "./page.module.css";
+import { HeroCTA } from "@/components/ab-testing/HeroCTA";
 
 export const metadata: Metadata = {
   title: "Lumigift — Time-Locked Cash Gifts on Stellar",
@@ -24,9 +25,7 @@ export default function HomePage() {
             unforgettable.
           </p>
           <div className={styles.cta}>
-            <Link href="/send" className="btn btn--primary btn--lg">
-              Send a Gift
-            </Link>
+            <HeroCTA />
             <Link href="/how-it-works" className="btn btn--secondary btn--lg">
               How it works
             </Link>
