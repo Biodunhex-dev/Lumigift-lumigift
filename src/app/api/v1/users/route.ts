@@ -1,25 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import pool from "@/lib/db";
 import { normalizePhone } from "@/lib/phone";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, validateRequest, searchParamsToObject } from "@/server/middleware";
+import { userExistsQuerySchema } from "@/lib/schemas";
 import type { ApiResponse } from "@/types";
 
-const existsSchema = z.object({
-  phone: z.string().min(1),
-});
-
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const { searchParams } = new URL(req.url);
-  const phoneParam = searchParams.get("phone");
-  if (!phoneParam) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Phone parameter required" },
-      { status: 400 }
-    );
-  }
+  // ── Validate query params ────────────────────────────────────────────────
+  const validation = validateRequest(
+    userExistsQuerySchema,
+    searchParamsToObject(new URL(req.url).searchParams)
+  );
+  if (!validation.success) return validation.errorResponse;
 
-  const phone = normalizePhone(phoneParam);
+  // Normalize after schema validation (schema ensures phone is non-empty)
+  const phone = normalizePhone(validation.data.phone);
   if (!phone) {
     return NextResponse.json<ApiResponse<never>>(
       { success: false, error: "Invalid phone number" },

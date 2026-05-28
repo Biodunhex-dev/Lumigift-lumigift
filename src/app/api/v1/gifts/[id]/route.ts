@@ -3,13 +3,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getGiftById, cancelGift } from "@/server/services/gift.service";
 import { refundPayment } from "@/lib/paystack";
-import { withErrorHandler, withCsrf } from "@/server/middleware";
+import { withErrorHandler, withCsrf, validateRequest } from "@/server/middleware";
+import { giftIdParamSchema } from "@/lib/schemas";
 import type { ApiResponse, Gift } from "@/types";
 
 export const GET = withErrorHandler(
   async (_req: NextRequest, context: unknown) => {
+    // ── Validate path param ────────────────────────────────────────────────
     const { params } = context as { params: { id: string } };
-    const gift = await getGiftById(params.id);
+    const paramValidation = validateRequest(giftIdParamSchema, params);
+    if (!paramValidation.success) return paramValidation.errorResponse;
+
+    const gift = await getGiftById(paramValidation.data.id);
 
     if (!gift) {
       return NextResponse.json<ApiResponse<never>>(
@@ -46,8 +51,12 @@ export const DELETE = withErrorHandler(
       );
     }
 
+    // ── Validate path param ──────────────────────────────────────────────
     const { params } = context as { params: { id: string } };
-    const gift = await getGiftById(params.id);
+    const paramValidation = validateRequest(giftIdParamSchema, params);
+    if (!paramValidation.success) return paramValidation.errorResponse;
+
+    const gift = await getGiftById(paramValidation.data.id);
 
     if (!gift) {
       return NextResponse.json<ApiResponse<never>>(

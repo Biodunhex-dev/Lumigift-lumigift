@@ -1,39 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
-import { normalizePhone } from "@/lib/phone";
-import { withErrorHandler, withCsrf } from "@/server/middleware";
+import { withErrorHandler, withCsrf, validateRequest } from "@/server/middleware";
+import { registerBodySchema } from "@/lib/schemas";
 import { validateInvitationToken, acceptInvitation } from "@/server/services/invitation.service";
 import { randomUUID } from "crypto";
 import type { ApiResponse } from "@/types";
 
-const registerSchema = {
-  phone: (val: string) => normalizePhone(val),
-  displayName: (val: string) => typeof val === "string" && val.length >= 2,
-  invitationToken: (val: string) => typeof val === "string" && val.length > 0,
-};
-
 export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
-  const body = await req.json();
-  
-  const phone = normalizePhone(String(body?.phone ?? ""));
-  const displayName = String(body?.displayName ?? "").trim();
-  const invitationToken = String(body?.invitationToken ?? "").trim();
+  // ── Validate request body ────────────────────────────────────────────────
+  const body = await req.json().catch(() => ({}));
+  const validation = validateRequest(registerBodySchema, body);
+  if (!validation.success) return validation.errorResponse;
 
-  if (!phone) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Invalid phone number" },
-      { status: 400 }
-    );
-  }
+  const { phone, displayName, invitationToken } = validation.data;
 
-  if (displayName.length < 2) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Name must be at least 2 characters" },
-      { status: 400 }
-    );
-  }
-
-  // Check if phone is already registered
+  // ── Check for existing account ───────────────────────────────────────────
   const { rows: existingUsers } = await pool.query(
     "SELECT 1 FROM users WHERE phone = $1 LIMIT 1",
     [phone]
@@ -46,7 +27,7 @@ export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
     );
   }
 
-  // If invitation token is provided, validate it
+  // ── Validate invitation token (if provided) ──────────────────────────────
   let invitationId: string | null = null;
   if (invitationToken) {
     const invitation = await validateInvitationToken(invitationToken);
@@ -68,7 +49,7 @@ export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
     invitationId = invitation.id;
   }
 
-  // Create the user
+  // ── Create the user ──────────────────────────────────────────────────────
   const userId = randomUUID();
   try {
     await pool.query(
@@ -82,10 +63,7 @@ export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
     }
 
     return NextResponse.json<ApiResponse<{ userId: string; phone: string }>>(
-      { 
-        success: true, 
-        data: { userId, phone }
-      },
+      { success: true, data: { userId, phone } },
       { status: 201 }
     );
   } catch (error) {

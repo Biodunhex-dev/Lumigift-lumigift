@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { queryAuditLogs, AuditEventType } from "@/server/services/audit.service";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, validateRequest, searchParamsToObject } from "@/server/middleware";
+import { auditLogsQuerySchema } from "@/lib/schemas";
 import type { ApiResponse } from "@/types";
 
 interface AuditLogQueryResponse {
@@ -32,47 +33,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // TODO: Add admin role check once role-based access is implemented
   // For now, only authenticated users can access
-  // const user = session.user as { id: string; role?: string };
-  // if (user.role !== "admin") {
-  //   return NextResponse.json<ApiResponse<never>>(
-  //     { success: false, error: "Forbidden" },
-  //     { status: 403 }
-  //   );
-  // }
 
-  const searchParams = req.nextUrl.searchParams;
-  const userId = searchParams.get("userId") ?? undefined;
-  const giftId = searchParams.get("giftId") ?? undefined;
-  const eventType = searchParams.get("eventType") as AuditEventType | null;
-  const startDateStr = searchParams.get("startDate");
-  const endDateStr = searchParams.get("endDate");
-  const limitStr = searchParams.get("limit");
-  const offsetStr = searchParams.get("offset");
+  // ── Validate query params ────────────────────────────────────────────────
+  const validation = validateRequest(
+    auditLogsQuerySchema,
+    searchParamsToObject(req.nextUrl.searchParams)
+  );
+  if (!validation.success) return validation.errorResponse;
 
-  const startDate = startDateStr ? new Date(startDateStr) : undefined;
-  const endDate = endDateStr ? new Date(endDateStr) : undefined;
-  const limit = limitStr ? parseInt(limitStr, 10) : 50;
-  const offset = offsetStr ? parseInt(offsetStr, 10) : 0;
-
-  // Validate date parsing
-  if (startDateStr && isNaN(startDate!.getTime())) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Invalid startDate format" },
-      { status: 400 }
-    );
-  }
-
-  if (endDateStr && isNaN(endDate!.getTime())) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Invalid endDate format" },
-      { status: 400 }
-    );
-  }
+  const { userId, giftId, eventType, startDate, endDate, limit, offset } = validation.data;
 
   const result = await queryAuditLogs({
     userId,
     giftId,
-    eventType: eventType ?? undefined,
+    eventType: eventType as AuditEventType | undefined,
     startDate,
     endDate,
     limit,

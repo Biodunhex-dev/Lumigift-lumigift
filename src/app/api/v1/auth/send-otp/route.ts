@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendOtp } from "@/lib/sms";
 import { storeOtp } from "@/lib/otp";
-import { withErrorHandler, withCsrf } from "@/server/middleware";
+import { withErrorHandler, withCsrf, validateRequest } from "@/server/middleware";
 import { getRedisClient } from "@/lib/redis";
-import { normalizePhone } from "@/lib/phone";
+import { sendOtpBodySchema } from "@/lib/schemas";
 import type { ApiResponse } from "@/types";
 
 // Uniform success message — never reveal whether the number is registered.
@@ -22,15 +22,12 @@ async function checkRateLimit(
 }
 
 export const POST = withErrorHandler(withCsrf(async (req: NextRequest) => {
-  const body = await req.json();
-  const phone = normalizePhone(String(body?.phone ?? ""));
+  // ── Validate request body ────────────────────────────────────────────────
+  const body = await req.json().catch(() => ({}));
+  const validation = validateRequest(sendOtpBodySchema, body);
+  if (!validation.success) return validation.errorResponse;
 
-  if (!phone) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: "Invalid phone number" },
-      { status: 400 }
-    );
-  }
+  const { phone } = validation.data;
 
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
