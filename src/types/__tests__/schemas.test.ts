@@ -26,6 +26,23 @@ describe("Zod Validation Schemas", () => {
       }
     });
 
+    it("should accept an optional recipient email if provided", () => {
+      const validInput = {
+        recipientPhone: "+2348012345678",
+        recipientName: "John Doe",
+        amountNgn: 1000,
+        unlockAt: new Date(Date.now() + 86400000).toISOString(),
+        paymentProvider: "paystack" as const,
+        recipientEmail: "amara@example.com",
+      };
+
+      const result = createGiftSchema.safeParse(validInput);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.recipientEmail).toBe("amara@example.com");
+      }
+    });
+
     it("should reject missing required fields", () => {
       const invalidInput = {
         recipientName: "John Doe",
@@ -84,6 +101,19 @@ describe("Zod Validation Schemas", () => {
         recipientName: "John Doe",
         amountNgn: 1000,
         unlockAt: new Date(Date.now() - 86400000).toISOString(), // yesterday
+        paymentProvider: "paystack",
+      };
+
+      const result = createGiftSchema.safeParse(invalidInput);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject unlock date less than 1 hour from now", () => {
+      const invalidInput = {
+        recipientPhone: "+2348012345678",
+        recipientName: "John Doe",
+        amountNgn: 1000,
+        unlockAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes from now
         paymentProvider: "paystack",
       };
 

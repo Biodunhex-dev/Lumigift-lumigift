@@ -2,17 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPayment } from "@/lib/paystack";
 import { updateGiftStatus } from "@/server/services/gift.service";
 import { validateSlippage } from "@/server/services/exchange-rate.service";
-import { withErrorHandler } from "@/server/middleware";
+import { withErrorHandler, validateRequest, searchParamsToObject } from "@/server/middleware";
+import { paystackCallbackQuerySchema } from "@/lib/schemas";
 
 /** Paystack redirects here after payment. */
 export const GET = withErrorHandler(async (req: NextRequest) => {
-  const { searchParams } = new URL(req.url);
-  const reference = searchParams.get("reference");
-  const giftId = searchParams.get("giftId");
+  // ── Validate query params ────────────────────────────────────────────────
+  const validation = validateRequest(
+    paystackCallbackQuerySchema,
+    searchParamsToObject(new URL(req.url).searchParams)
+  );
 
-  if (!reference || !giftId) {
+  if (!validation.success) {
+    // Paystack callback — redirect to error page rather than returning JSON
     return NextResponse.redirect(new URL("/error?code=bad_callback", req.url));
   }
+
+  const { reference, giftId } = validation.data;
 
   const result = await verifyPayment(reference);
 

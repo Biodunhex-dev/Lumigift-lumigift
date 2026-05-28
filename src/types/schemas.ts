@@ -1,17 +1,17 @@
-import { z } from "zod";
-import { normalizePhone } from "@/lib/phone";
-import { formatNGN } from "@/lib/currency";
+/**
+ * @file schemas.ts
+ * Backward-compatibility re-export shim.
+ *
+ * Schema definitions have been moved to `src/lib/schemas/` so they can be
+ * shared between frontend and backend. All existing imports from
+ * `@/types/schemas` continue to work without any changes.
+ */
 
-const e164Phone = z
-  .string()
-  .transform((val, ctx) => {
-    const normalized = normalizePhone(val);
-    if (!normalized) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter a valid phone number" });
-      return z.NEVER;
-    }
-    return normalized;
-  });
+export {
+  createGiftSchema,
+  verifyOtpSchema,
+  claimGiftSchema,
+} from "@/lib/schemas";
 
 export const createGiftSchema = z.object({
   recipientPhone: e164Phone,
@@ -30,8 +30,12 @@ export const createGiftSchema = z.object({
   unlockAt: z
     .string()
     .datetime()
-    .refine((val) => new Date(val) > new Date(), "Unlock date must be in the future"),
+    .refine(
+      (val) => new Date(val).getTime() >= Date.now() + 60 * 60 * 1000,
+      "Unlock date must be at least 1 hour from now"
+    ),
   paymentProvider: z.enum(["paystack", "stripe"]),
+  recipientEmail: z.string().email("Enter a valid email address").optional(),
   recipientIsRegistered: z.boolean().default(true),
 });
 

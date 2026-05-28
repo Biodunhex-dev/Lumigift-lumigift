@@ -1,21 +1,23 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SessionProvider } from "next-auth/react";
 import { useState } from "react";
 import { ToastProvider } from "@/components/ui/ToastContext";
 import { Toaster } from "@/components/ui/Toaster";
-import { ABTestingProvider } from "@/components/ab-testing/ABTestingProvider";
+import { CrispChat } from "@/components/support/CrispChat";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient());
   return (
-    <QueryClientProvider client={client}>
-      <ToastProvider>
-        <ABTestingProvider>
+    <SessionProvider>
+      <QueryClientProvider client={client}>
+        <ToastProvider>
           {children}
           <Toaster />
-        </ABTestingProvider>
-      </ToastProvider>
-    </QueryClientProvider>
+          <CrispChat />
+        </ToastProvider>
+      </QueryClientProvider>
+    </SessionProvider>
   );
 }
