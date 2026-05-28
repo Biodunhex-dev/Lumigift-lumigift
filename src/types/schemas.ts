@@ -30,8 +30,12 @@ export const createGiftSchema = z.object({
   unlockAt: z
     .string()
     .datetime()
-    .refine((val) => new Date(val) > new Date(), "Unlock date must be in the future"),
+    .refine(
+      (val) => new Date(val).getTime() >= Date.now() + 60 * 60 * 1000,
+      "Unlock date must be at least 1 hour from now"
+    ),
   paymentProvider: z.enum(["paystack", "stripe"]),
+  recipientEmail: z.string().email("Enter a valid email address").optional(),
   recipientIsRegistered: z.boolean().default(true),
 });
 

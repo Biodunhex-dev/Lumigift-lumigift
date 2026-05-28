@@ -12,13 +12,14 @@ import type { GiftPageOffset } from "@/server/services/gift.service";
 const DEFAULT_LIMIT = 10;
 
 async function fetchGifts(page: number, limit: number, status?: string): Promise<GiftPageOffset> {
-  const url = new URL("/api/v1/gifts", window.location.origin);
-  url.searchParams.set("page", String(page));
-  url.searchParams.set("limit", String(limit));
+  const query = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
   if (status && status !== "all") {
-    url.searchParams.set("status", status);
+    query.set("status", status);
   }
-  const res = await fetch(url.toString());
+  const res = await fetch(`/api/v1/gifts?${query.toString()}`);
   const json: ApiResponse<GiftPageOffset> = await res.json();
   if (!json.success) throw new Error(json.error);
   return json.data;

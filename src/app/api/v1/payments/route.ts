@@ -18,9 +18,14 @@ function verifySignature(rawBody: string, signature: string): boolean {
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const signature = req.headers.get("x-paystack-signature") ?? "";
+  const signature = req.headers.get("x-paystack-signature");
+
+  if (!signature) {
+    return NextResponse.json({ error: "Missing Paystack signature" }, { status: 401 });
+  }
 
   if (!verifySignature(rawBody, signature)) {
+    console.warn("Rejected Paystack webhook with invalid signature");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

@@ -7,6 +7,8 @@ import type { CreateGiftInput } from "@/types/schemas";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { GiftPreview } from "./GiftPreview";
 import { useState } from "react";
 import { useCsrf } from "@/hooks/useCsrf";
@@ -27,6 +29,7 @@ export function CreateGiftForm() {
 
   const {
     register,
+    watch,
     handleSubmit,
     getValues,
     formState: { errors },
@@ -36,6 +39,9 @@ export function CreateGiftForm() {
     defaultValues: { paymentProvider: "paystack", recipientIsRegistered: true },
     mode: "onBlur",
   });
+
+  const recipientPhone = watch("recipientPhone");
+  const watchedUnlockAt = watch("unlockAt");
 
   // Step 1 → Step 2: fetch USDC estimate then show preview
   const onFormSubmit = async (data: CreateGiftInput) => {
@@ -166,10 +172,12 @@ export function CreateGiftForm() {
           Min {formatNGN(500)} · Max {formatNGN(500000)} · Daily limit {formatNGN(1000000)}
         </p>
 
-        <Input
+        <DateTimePicker
           label="Unlock Date & Time"
-          type="datetime-local"
+          id="unlockAt"
           error={errors.unlockAt?.message}
+          selectedDate={watchedUnlockAt}
+          recipientPhone={recipientPhone}
           {...register("unlockAt")}
         />
 
@@ -188,21 +196,21 @@ export function CreateGiftForm() {
       </form>
 
       {showUnregisteredWarning && (
-        <div className={styles.overlay}>
-          <div className={styles.modal}>
-            <h3>Unregistered Recipient</h3>
-            <p>The recipient's phone number is not registered with Lumigift. They will receive an SMS invitation to claim the gift, but must register first.</p>
-            <p>Are you sure you want to proceed?</p>
-            <div className={styles.modalActions}>
-              <Button onClick={onCancelUnregistered} variant="secondary">
-                Cancel
-              </Button>
-              <Button onClick={onProceedUnregistered}>
-                Proceed
-              </Button>
-            </div>
+        <Modal
+          title="Unregistered Recipient"
+          description="This phone number has not been linked to a Lumigift account yet. The recipient will receive an SMS invitation and must register before claiming the gift."
+          onClose={onCancelUnregistered}
+        >
+          <p>The recipient's phone number is not registered with Lumigift. They will receive an SMS invitation to claim the gift, but must register first.</p>
+          <div className={styles.modalActions}>
+            <Button onClick={onCancelUnregistered} variant="secondary">
+              Cancel
+            </Button>
+            <Button onClick={onProceedUnregistered}>
+              Proceed
+            </Button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

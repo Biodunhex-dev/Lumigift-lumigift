@@ -30,12 +30,16 @@ function makeSignature(body: string) {
   return crypto.createHmac("sha512", "test-secret").update(body).digest("hex");
 }
 
-function makeRequest(body: object, signature?: string) {
+function makeRequest(body: object, signature?: string | null) {
   const raw = JSON.stringify(body);
-  const sig = signature ?? makeSignature(raw);
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (signature !== null) {
+    headers["x-paystack-signature"] = signature ?? makeSignature(raw);
+  }
+
   return new Request("http://localhost/api/payments", {
     method: "POST",
-    headers: { "x-paystack-signature": sig, "content-type": "application/json" },
+    headers,
     body: raw,
   });
 }
@@ -55,6 +59,13 @@ describe("POST /api/payments (Paystack webhook)", () => {
 
   it("returns 401 for invalid signature", async () => {
     const req = makeRequest({ event: "charge.success", data: { reference: "ref1" } }, "badsig");
+    const res = await POST(req as never);
+    expect(res.status).toBe(401);
+    expect(mockUpdateGiftStatus).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 when the signature header is missing", async () => {
+    const req = makeRequest({ event: "charge.success", data: { reference: "ref_missing" } }, null);
     const res = await POST(req as never);
     expect(res.status).toBe(401);
     expect(mockUpdateGiftStatus).not.toHaveBeenCalled();
